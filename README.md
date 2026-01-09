@@ -1,16 +1,60 @@
-# smritim_app
+# Smritim App (Flutter)
 
-A new Flutter project.
+Smritim App is a production-grade Flutter application designed for **patient medication adherence**, **adverse drug reaction (ADR) reporting**, and **clinical safety workflows**.
 
-## Getting Started
+---
 
-This project is a starting point for a Flutter application.
+## ✨ Core Capabilities
 
-A few resources to get you started if this is your first Flutter project:
+### Patient
+- Medication adherence confirmation
+- Conversational chatbot
+- Symptom reporting with rule-based suggestions
+- Dual-language support (English / Malayalam)
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+### Clinician
+- View alerts
+- Create PvPI cases from alerts
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+### Hospital Admin
+- Review & submit PvPI cases
+- Audit safety events
+
+---
+
+## 🏗 Architecture
+
+Flutter App → REST APIs → Smritim Backend (Node.js + MySQL)
+
+---
+
+## 🚀 Setup
+
+```bash
+flutter pub get
+flutter run --dart-define=API_BASE_URL=http://localhost:3000/api
+```
+
+---
+
+## 🔐 Security
+- No secrets committed
+- `.env` ignored
+- Role-based backend enforcement
+
+---
+
+## 📂 Structure
+
+```
+lib/
+├── api_client.dart
+├── screens/
+├── widgets/
+└── main.dart
+```
+
+---
+
+## 📜 License
+© Smritim. All rights reserved.
