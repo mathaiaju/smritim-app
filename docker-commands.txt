@@ -1,0 +1,9 @@
+# Start SMRITI-M APP
+
+
+docker build -t smritim-app .
+
+docker run --name smritim-app \
+  --network smritim-net \
+  -p 8080:80 \
+  smritim-app
