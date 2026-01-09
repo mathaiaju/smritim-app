@@ -1,0 +1,2 @@
+flutter build apk --dart-define=API_BASE_URL=https://api.smritim.com/api
+flutter run -d chrome

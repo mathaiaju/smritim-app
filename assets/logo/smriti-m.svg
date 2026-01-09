@@ -1,0 +1,8 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" rx="80" fill="#3F51B5"></rect>
+  <path d="M256 120 L360 180 V260 C360 330 310 380 256 400 C202 380 152 330 152 260 V180 Z" fill="#FFFFFF"></path>
+  <path d="M200 260 H240 L256 220 L272 300 L288 260 H312" stroke="#009688" stroke-width="12" fill="none"></path>
+  <text x="256" y="460" font-size="48" text-anchor="middle" fill="white" font-family="Arial, Helvetica, sans-serif" font-weight="bold">
+    SMRITI-M
+  </text>
+</svg>
