@@ -33,6 +33,7 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => loading = false);
 
       if (res.statusCode == 200) {
+        ApiClient.enableBiometric(true);
         final data = jsonDecode(res.body);
         final role = data['role'];
         ApiClient.setSession(

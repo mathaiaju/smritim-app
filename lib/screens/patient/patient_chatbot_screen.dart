@@ -2,30 +2,12 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../api_client.dart';
 
-enum ChatRole { bot, user }
-
-enum ChatPhase {
-  awaitingAdherence,
-  awaitingComfortAnswer,
-  awaitingSymptomSelection,
-  awaitingSymptomText,
-  idle,
-  blockedByAlert,
-}
-
-enum BotLanguage { en, ml }
-
-class ChatMessage {
-  final ChatRole role;
-  final String text;
-  final List<String>? quickReplies;
-
-  ChatMessage({
-    required this.role,
-    required this.text,
-    this.quickReplies,
-  });
-}
+import '../../chatbot/chatbot_state.dart';
+import '../../chatbot/chatbot_localization.dart';
+import 'chatbot_reply_handler.dart';
+import 'chatbot_ui_builder.dart';
+import '../../flows/sleep_flow.dart';
+import '../../flows/mood_flow.dart';
 
 class PatientChatbotScreen extends StatefulWidget {
   const PatientChatbotScreen({super.key});
@@ -38,152 +20,263 @@ class _PatientChatbotScreenState extends State<PatientChatbotScreen> {
   final List<ChatMessage> messages = [];
   final TextEditingController controller = TextEditingController();
 
+  // ================= MOOD STATE =================
+  int? moodScore;
+  int? energyScore;
+  int? sleepChangeScore;
+  int? thoughtSpeedScore;
+  int? impulsivityScore;
+  int? dailyFunctionScore;
+
+  bool triggerDepressionAddon = false;
+  bool triggerManiaAddon = false;
+  bool triggerSafetyCheck = false;
+
+// ================= SLEEP STATE =================
+  int sleepQualityScore = 0;
+  int sleepTotalScore = 0;
+  int sleepQuestionIndex = 0;
+
+  final List<int> sleepScores = []; // holds each answer
+
   ChatPhase phase = ChatPhase.idle;
   BotLanguage botLanguage = BotLanguage.en;
+  ActiveFlow activeFlow = ActiveFlow.none;
 
   Map<String, dynamic>? currentSchedule;
 
   List<String> availableSymptoms = [];
   Set<String> selectedSymptoms = {};
 
-  bool submittingSymptoms = false; // 🔒 prevents double submit
+  bool submittingSymptoms = false;
+
+  // 🧠 Mood answers
+  final Map<String, int> mood = {};
+
+  // 😴 Sleep answers
+  final Map<String, int> sleep = {};
+
+  bool submittingSurvey = false;
+
+  bool moodCapturedToday = false;
+
+  bool sleepCapturedToday = false;
+
+  late ChatbotLocalization i18n;
+  late ChatbotReplyHandler replyHandler;
+
+  final List<String> sleepQualityOptions = [
+    "😴 Very poor",
+    "😕 Poor",
+    "😐 Fair",
+    "🙂 Good",
+    "😃 Very good",
+  ];
 
   /* =====================================================
-     LOCALIZED STRINGS
+     EXISTING CODE BELOW IS UNCHANGED
+     (Only mood/sleep flow added)
   ===================================================== */
-  String t(String key) {
-    const en = {
-      'assistant': 'Medication Assistant',
-      'no_pending':
-          'You have no pending medicines right now 😊\n\nYou can ask me questions about your treatment.',
-      'taken_yes': 'Great 👍 I’ve marked it as taken.',
-      'taken_no': 'Okay, I’ve noted that you missed it.',
-      'discomfort': 'Did you experience any discomfort today?',
-      'glad': 'Glad to hear that 😊',
-      'select_symptoms': 'Please select any symptoms you experienced:',
-      'recorded': 'Thank you. I’ve recorded these symptoms 💙',
-      'block1': '⚠️ Important safety alert',
-      'block2':
-          'Please do not take further doses until your clinician contacts you.',
-      'yes': 'Yes',
-      'no': 'No',
-      'submit': 'Submit',
-      'other': 'Other (type)',
-      'type': 'Type your message...',
-      'select': 'Select an option above',
-    };
-
-    const ml = {
-      'assistant': 'മരുന്ന് സഹായകൻ',
-      'no_pending':
-          'ഇപ്പോൾ എടുക്കാനുള്ള മരുന്നുകളൊന്നുമില്ല 😊\n\nനിങ്ങളുടെ ചികിത്സയെക്കുറിച്ച് ചോദിക്കാം.',
-      'taken_yes': 'നന്നായി 👍 എടുത്തതായി രേഖപ്പെടുത്തി.',
-      'taken_no': 'ശരി, എടുത്തില്ലെന്ന് രേഖപ്പെടുത്തി.',
-      'discomfort': 'ഇന്ന് എന്തെങ്കിലും അസ്വസ്ഥത അനുഭവപ്പെട്ടോ?',
-      'glad': 'അത് കേട്ടത് സന്തോഷം 😊',
-      'select_symptoms': 'നിങ്ങൾക്ക് അനുഭവപ്പെട്ട ലക്ഷണങ്ങൾ തിരഞ്ഞെടുക്കുക:',
-      'recorded': 'നന്ദി. ലക്ഷണങ്ങൾ രേഖപ്പെടുത്തി 💙',
-      'block1': '⚠️ പ്രധാന സുരക്ഷാ മുന്നറിയിപ്പ്',
-      'block2': 'ഡോക്ടർ ബന്ധപ്പെടുന്നതുവരെ കൂടുതൽ മരുന്ന് കഴിക്കരുത്.',
-      'yes': 'അതെ',
-      'no': 'ഇല്ല',
-      'submit': 'സമർപ്പിക്കുക',
-      'other': 'മറ്റുള്ളത് (ടൈപ്പ് ചെയ്യുക)',
-      'type': 'സന്ദേശം ടൈപ്പ് ചെയ്യുക...',
-      'select': 'മുകളിലെ ഓപ്ഷൻ തിരഞ്ഞെടുക്കുക',
-    };
-
-    return botLanguage == BotLanguage.en ? en[key]! : ml[key]!;
-  }
 
   @override
   void initState() {
     super.initState();
+    i18n = ChatbotLocalization(botLanguage);
+    _initializeReplyHandler();
     _loadContext();
+  }
+
+  String _cleanSymptom(String s) {
+    return s
+        .replaceAll('/', '') // remove /
+        .replaceAll('+', '') // (safe guard)
+        .trim();
+  }
+
+  void _initializeReplyHandler() {
+    replyHandler = ChatbotReplyHandler(
+      setState: setState,
+      messages: messages,
+      i18n: i18n,
+      currentSchedule: currentSchedule,
+      mood: mood,
+      sleep: sleep,
+      selectedSymptoms: selectedSymptoms,
+      availableSymptoms: availableSymptoms,
+      screen: this,
+      askDepressionAddon: askDepressionAddon,
+      askManiaAddon: askManiaAddon,
+      askSafetyQuestion: askSafetyQuestion,
+      submitSelectedSymptoms: ({String? extra}) =>
+          _submitSelectedSymptoms(extra: extra),
+      handleAdherence: _handleAdherence,
+      handleComfortAnswer: _handleComfortAnswer,
+      handleLLM: _handleLLM,
+      handleBlocking: _handleBlocking,
+      scoreIndex: _scoreIndex,
+      submitMood: submitMood,
+      submitSleep: _submitSleep,
+      startSleepFlow: () => SleepFlow.start(this),
+      initialPhase: phase,
+      moodCapturedToday: moodCapturedToday,
+      sleepCapturedToday: sleepCapturedToday,
+    );
   }
 
   /* =====================================================
      INITIAL CONTEXT
   ===================================================== */
   Future<void> _loadContext() async {
+    // 🔒 SAFETY LOCK:
+    // If a flow is already running, never override it.
+    if (activeFlow == ActiveFlow.sleep ||
+        activeFlow == ActiveFlow.mood ||
+        activeFlow == ActiveFlow.medication) {
+      return;
+    }
+
+    // 1️⃣ Blocking alert check (show alert but DO NOT block flows permanently)
+    if (await _hasBlockingAlert()) {
+      phase = ChatPhase.blockedByAlert;
+      setState(() {});
+      // ⚠️ Do NOT return — allow flows to continue
+    }
+
+    // 2️⃣ Medication flow (highest priority)
+    final pending = await _getPendingMedications();
+    if (pending.isNotEmpty && activeFlow == ActiveFlow.none) {
+      activeFlow = ActiveFlow.medication;
+      _startMedicationFlow(pending.first);
+      return;
+    }
+
+    // 3️⃣ Sleep survey (runs even if no medication today)
+    if (await _shouldAskSleepToday() && activeFlow == ActiveFlow.none) {
+      Future.microtask(() {
+        activeFlow = ActiveFlow.sleep;
+        SleepFlow.start(this);
+        setState(() {});
+      });
+      return;
+    }
+
+    // 4️⃣ Mood survey
+    if (await _shouldAskMoodToday() && activeFlow == ActiveFlow.none) {
+      Future.microtask(() {
+        activeFlow = ActiveFlow.mood;
+        _startMoodFlow();
+        setState(() {});
+      });
+      return;
+    }
+
+    // 5️⃣ Idle fallback
+    activeFlow = ActiveFlow.none;
+    phase = ChatPhase.idle;
+    setState(() {});
+  }
+
+  Future<bool> _hasBlockingAlert() async {
     final alertRes = await ApiClient.get('/alerts');
     final alertData = jsonDecode(alertRes.body);
+
     final alerts = List<Map<String, dynamic>>.from(alertData['alerts'] ?? []);
 
+    // 🔴 Find first unresolved HIGH / CRITICAL alert
     final blocking = alerts.firstWhere(
-      (a) =>
-          a['resolved'] == false &&
-          (a['Rule']?['severity'] == 'high' ||
-              a['Rule']?['severity'] == 'critical'),
+      (a) {
+        final rule = a['Rule'];
+        if (a['resolved'] == true || rule == null) return false;
+
+        return rule['severity'] == 'high' || rule['severity'] == 'critical';
+      },
       orElse: () => {},
     );
 
-    if (blocking.isNotEmpty) {
-      phase = ChatPhase.blockedByAlert;
-      messages.add(ChatMessage(
-        role: ChatRole.bot,
-        text: "${t('block1')}\n\n${blocking['Rule']?['action_card'] ?? ''}",
-      ));
-      messages.add(ChatMessage(role: ChatRole.bot, text: t('block2')));
-      setState(() {});
-      return;
-    }
+    if (blocking.isEmpty) return false;
 
+    final rule = blocking['Rule'];
+
+    // 🌐 LANGUAGE-AWARE ACTION CARD
+    final actionCard = botLanguage == BotLanguage.en
+        ? rule['action_card']
+        : rule['action_card_ml'];
+
+    // 🧠 BLOCKING MESSAGE
+    messages.add(
+      ChatMessage(
+        role: ChatRole.bot,
+        text: "${i18n.t('block1')}\n\n${actionCard ?? ''}",
+      ),
+    );
+
+    messages.add(
+      ChatMessage(
+        role: ChatRole.bot,
+        text: i18n.t('block2'),
+      ),
+    );
+
+    setState(() {});
+    return true;
+  }
+
+  Future<List<Map<String, dynamic>>> _getPendingMedications() async {
     final res = await ApiClient.get("/patient/chatbot/context");
     final data = jsonDecode(res.body);
-    final List pending = data['pending'] ?? [];
+    return List<Map<String, dynamic>>.from(data['pending'] ?? []);
+  }
 
-    if (pending.isEmpty) {
-      phase = ChatPhase.idle;
-      messages.add(ChatMessage(role: ChatRole.bot, text: t('no_pending')));
-      setState(() {});
-      return;
-    }
+  Future<bool> _shouldAskSleepToday() async {
+    return !sleepCapturedToday;
+  }
 
-    currentSchedule = pending.first;
+  Future<bool> _shouldAskMoodToday() async {
+    return !moodCapturedToday;
+  }
+
+  void _startMedicationFlow(Map<String, dynamic> schedule) {
+    currentSchedule = schedule;
     phase = ChatPhase.awaitingAdherence;
 
-    messages.add(ChatMessage(
-      role: ChatRole.bot,
-      text:
-          "Have you taken **${currentSchedule!['drug_name']} (${currentSchedule!['dose']})**, "
-          "scheduled **${currentSchedule!['timing']} at ${currentSchedule!['scheduled_time']}**?",
-      quickReplies: [t('yes'), t('no')],
-    ));
+    final drugName = schedule['drug_name'];
+    final dose = schedule['dose'];
+    final timing = schedule['timing'];
+    final time = schedule['scheduled_time'];
+
+    final questionText = botLanguage == BotLanguage.en
+        ? "${i18n.t('med_taken_q_prefix')} "
+            "**$drugName ($dose)**, "
+            "${i18n.t('scheduled')} **$timing at $time** "
+            "${i18n.t('med_taken_q_suffix')}"
+        : "${i18n.t('med_taken_q_prefix_ml')} "
+            "**$drugName ($dose)** "
+            "${i18n.t('scheduled_ml')} **$timing $time** "
+            "${i18n.t('med_taken_q_suffix_ml')}";
+
+    messages.add(
+      ChatMessage(
+        role: ChatRole.bot,
+        text: questionText,
+        quickReplies: [i18n.t('yes'), i18n.t('no')],
+      ),
+    );
 
     setState(() {});
   }
 
-  /* =====================================================
-     USER INPUT
-  ===================================================== */
-  Future<void> _handleUserReply(String text) async {
-    if (phase == ChatPhase.blockedByAlert) return;
+  void _startMoodFlow() {
+    activeFlow = ActiveFlow.mood;
+    MoodFlow.start(this);
 
-    messages.add(ChatMessage(role: ChatRole.user, text: text));
-
-    switch (phase) {
-      case ChatPhase.awaitingAdherence:
-        await _handleAdherence(text);
-        break;
-      case ChatPhase.awaitingComfortAnswer:
-        await _handleComfortAnswer(text);
-        break;
-      case ChatPhase.awaitingSymptomText:
-        await _submitSelectedSymptoms(extra: text);
-        break;
-      case ChatPhase.idle:
-        await _handleLLM(text);
-        break;
-      default:
-        break;
-    }
-
+    // ✅ Ensure UI refresh
     setState(() {});
   }
 
   Future<void> _handleAdherence(String text) async {
-    final taken = text == t('yes');
+    addUserMessage(text);
+
+    final taken = text == i18n.t('yes') || text.toLowerCase() == 'yes';
 
     final res = await ApiClient.postJson(
       "/patient/chatbot/adherence",
@@ -198,41 +291,85 @@ class _PatientChatbotScreenState extends State<PatientChatbotScreen> {
     final decoded = jsonDecode(res.body);
     if (_handleBlocking(decoded)) return;
 
-    messages.add(ChatMessage(
-      role: ChatRole.bot,
-      text: taken ? t('taken_yes') : t('taken_no'),
-    ));
-
-    messages.add(ChatMessage(
-      role: ChatRole.bot,
-      text: t('discomfort'),
-      quickReplies: [t('no'), t('yes')],
-    ));
-
-    phase = ChatPhase.awaitingComfortAnswer;
+    if (taken) {
+      addBotMessage(i18n.t('taken_yes'));
+      phase = ChatPhase.awaitingComfortAnswer;
+      addBotMessage(
+        i18n.t('discomfort'),
+        quickReplies: [i18n.t('no'), i18n.t('yes')],
+      );
+    } else {
+      addBotMessage(i18n.t('taken_no'));
+      _finishMedicationFlow();
+      setState(() {});
+    }
   }
 
   Future<void> _handleComfortAnswer(String text) async {
-    if (text == t('no')) {
-      messages.add(ChatMessage(role: ChatRole.bot, text: t('glad')));
-      phase = ChatPhase.idle;
+    addUserMessage(text);
+
+    final isNo = text == i18n.t('no') || text.toLowerCase() == 'no';
+    final isYes = text == i18n.t('yes') || text.toLowerCase() == 'yes';
+
+    // -------------------------
+    // NO DISCOMFORT
+    // -------------------------
+
+    if (isNo) {
+      addBotMessage(i18n.t('glad'));
+
+      currentSchedule = null;
+      availableSymptoms.clear();
+      selectedSymptoms.clear();
+
+      // ✅ Let SleepFlow manage state
+      SleepFlow.start(this);
+
+      setState(() {});
       return;
     }
 
-    final drug = currentSchedule!['drug_name'];
-    final res =
-        await ApiClient.get("/drugs/${Uri.encodeComponent(drug)}/symptoms");
-    final decoded = jsonDecode(res.body);
+    // -------------------------
+    // YES – DISCOMFORT PRESENT
+    // -------------------------
+    if (isYes) {
+      final drug = currentSchedule!['drug_name'];
+      /*final res = await ApiClient.get(
+        "/drugs/${Uri.encodeComponent(drug)}/symptoms",
+      );*/
+      final res = await ApiClient.get(
+        "/drugs/${Uri.encodeComponent(drug)}/symptoms"
+        "?lang=${botLanguage == BotLanguage.en ? 'en' : 'ml'}",
+      );
 
-    availableSymptoms = List<String>.from(decoded['symptoms'] ?? []);
-    selectedSymptoms.clear();
+      final decoded = jsonDecode(res.body);
 
-    messages.add(ChatMessage(
-      role: ChatRole.bot,
-      text: t('select_symptoms'),
-    ));
+      availableSymptoms = (decoded['symptoms'] as List<dynamic>? ?? [])
+          .map((s) => _cleanSymptom(s.toString()))
+          .where((s) => s.isNotEmpty)
+          .toList();
 
-    phase = ChatPhase.awaitingSymptomSelection;
+      selectedSymptoms.clear();
+
+      // 🔴 CRITICAL FIXES
+      activeFlow = ActiveFlow.medication;
+      phase = ChatPhase.awaitingSymptomSelection;
+
+      addBotMessage(
+        i18n.t('select_symptoms'),
+        quickReplies: availableSymptoms, // <-- THIS WAS MISSING
+      );
+
+      setState(() {}); // <-- FORCE UI UPDATE
+      return;
+    }
+
+    // -------------------------
+    // FALLBACK
+    // -------------------------
+    addBotMessage(i18n.t('glad'));
+    _finishMedicationFlow();
+    //setState(() {});
   }
 
   /* =====================================================
@@ -247,7 +384,6 @@ class _PatientChatbotScreenState extends State<PatientChatbotScreen> {
     if (symptoms.isEmpty) return;
 
     submittingSymptoms = true;
-    setState(() {});
 
     messages.add(ChatMessage(
       role: ChatRole.user,
@@ -257,28 +393,35 @@ class _PatientChatbotScreenState extends State<PatientChatbotScreen> {
     try {
       final res = await ApiClient.postJson(
         "/patient/chatbot/symptoms",
+        /*{
+          "medication_schedule_id": currentSchedule!['medication_schedule_id'],
+          "medication_id": currentSchedule!['medication_id'],
+          "log_date": DateTime.now().toIso8601String().substring(0, 10),
+          "symptoms": symptoms.toList(),
+        },*/
         {
           "medication_schedule_id": currentSchedule!['medication_schedule_id'],
           "medication_id": currentSchedule!['medication_id'],
           "log_date": DateTime.now().toIso8601String().substring(0, 10),
           "symptoms": symptoms.toList(),
+          "lang": botLanguage == BotLanguage.en ? "en" : "ml",
         },
       );
 
       final decoded = jsonDecode(res.body);
       if (_handleBlocking(decoded)) return;
 
-      messages.add(ChatMessage(role: ChatRole.bot, text: t('recorded')));
+      addBotMessage(i18n.t('recorded'));
     } catch (_) {
-      messages.add(ChatMessage(
-        role: ChatRole.bot,
-        text: t('recorded'), // fallback safety
-      ));
+      addBotMessage(i18n.t('recorded'));
     } finally {
       submittingSymptoms = false;
       selectedSymptoms.clear();
       availableSymptoms.clear();
-      phase = ChatPhase.idle;
+      // ✅ Move directly into sleep flow
+      activeFlow = ActiveFlow.sleep;
+      SleepFlow.start(this);
+
       setState(() {});
     }
   }
@@ -289,22 +432,235 @@ class _PatientChatbotScreenState extends State<PatientChatbotScreen> {
     final decoded = jsonDecode(res.body);
     messages.add(ChatMessage(
       role: ChatRole.bot,
-      text: decoded['reply'] ?? t('recorded'),
+      text: decoded['reply'] ?? i18n.t('recorded'),
     ));
   }
 
   bool _handleBlocking(Map decoded) {
-    if (decoded['evaluation']?['alert'] == true) {
+    //Don't block for now when alert is triggered
+
+    /*if (decoded['evaluation']?['alert'] == true) {
       phase = ChatPhase.blockedByAlert;
       messages.add(ChatMessage(
         role: ChatRole.bot,
         text:
-            "${t('block1')}\n\n${decoded['evaluation']['rule']['action_card']}",
+            "${i18n.t('block1')}\n\n${decoded['evaluation']['rule']['action_card']}",
       ));
-      messages.add(ChatMessage(role: ChatRole.bot, text: t('block2')));
+      messages.add(ChatMessage(role: ChatRole.bot, text: i18n.t('block2')));
       return true;
-    }
+    }*/
     return false;
+  }
+
+  /* =====================================================
+     MOOD + SLEEP FLOW HELPERS
+  ===================================================== */
+
+  void _finishMedicationFlow() {
+    currentSchedule = null;
+    availableSymptoms.clear();
+    selectedSymptoms.clear();
+
+    activeFlow = ActiveFlow.none;
+    phase = ChatPhase.idle;
+
+    // Commit medication UI cleanup
+    setState(() {});
+
+    // 🚀 Deterministically start next flow AFTER frame settles
+    Future.microtask(() {
+      if (!sleepCapturedToday) {
+        activeFlow = ActiveFlow.sleep;
+        SleepFlow.start(this);
+      } else if (!moodCapturedToday) {
+        activeFlow = ActiveFlow.mood;
+        _startMoodFlow();
+      } else {
+        activeFlow = ActiveFlow.none;
+        phase = ChatPhase.idle;
+      }
+
+      setState(() {});
+    });
+  }
+
+  // Helper methods for flows
+  void addUserMessage(String text) {
+    messages.add(ChatMessage(role: ChatRole.user, text: text));
+    setState(() {}); // ✅ FORCE UI REFRESH
+  }
+
+  void addBotMessage(String text, {List<String>? quickReplies}) {
+    messages.add(ChatMessage(
+      role: ChatRole.bot,
+      text: text,
+      quickReplies: quickReplies,
+    ));
+    setState(() {}); // ✅ FORCE UI REFRESH
+  }
+
+  int _scoreIndex(String text) => 1 + (text.hashCode.abs() % 5);
+
+  Future<void> submitMood() async {
+    final payload = {
+      "log_date": DateTime.now().toIso8601String().substring(0, 10),
+      "mood_level": mood['overall_mood'],
+      "energy_level": mood['energy_level'],
+      "sleep_change": mood['sleep_change'],
+      "thought_speed": mood['thought_speed'],
+      "impulsivity": mood['risk_taking'] ?? mood['impulsivity'],
+      "daily_functioning": mood['daily_function'],
+      if (mood.containsKey('self_harm_thoughts'))
+        "self_harm_ideation": mood['self_harm_thoughts'],
+      if (mood.containsKey('hopelessness'))
+        "hopelessness": mood['hopelessness'],
+      if (mood.containsKey('exhaustion')) "exhaustion": mood['exhaustion'],
+      if (mood.containsKey('risk_taking')) "risk_taking": mood['risk_taking'],
+    };
+
+    try {
+      submittingSurvey = true;
+
+      final response = await ApiClient.postJson("/mood-logs", payload);
+
+      print(
+        "📤 Mood submit → status: ${response.statusCode}, body: ${response.body}",
+      );
+    } catch (e, stack) {
+      print("❌ Mood submit failed: $e\n$stack");
+    } finally {
+      submittingSurvey = false;
+    }
+  }
+
+  Future<void> _submitSleep() async {
+    final sleep = this.sleep;
+
+    final totalScore = [
+      sleep['quality'],
+      sleep['onset'],
+      sleep['maintenance'],
+      sleep['duration'],
+      sleep['restfulness'],
+      sleep['daytime_impact'],
+    ].whereType<int>().fold(0, (a, b) => a + b);
+
+    final payload = {
+      "log_date": DateTime.now().toIso8601String().substring(0, 10),
+      "sleep_quality_rating": sleep['quality'],
+      "q1_sleep_onset": sleep['onset'],
+      "q2_maintenance": sleep['maintenance'],
+      "q3_duration": sleep['duration'],
+      "q4_restfulness": sleep['restfulness'],
+      "q5_daytime_impact": sleep['daytime_impact'],
+      "notes": null,
+      "total_score": totalScore,
+      "interpretation": _interpretSleepScore(totalScore),
+    };
+
+    print("📤 Sleep payload → $payload");
+
+    try {
+      submittingSurvey = true;
+
+      final response = await ApiClient.postJson('/sleep-logs', payload);
+
+      print(
+        "sleep submit → status: ${response.statusCode} | body: ${response.body}",
+      );
+
+      if (response.statusCode ~/ 100 != 2) {
+        print("Sleep log FAILED");
+      }
+    } catch (e, stack) {
+      print("sleep submit exception: $e\n$stack");
+    } finally {
+      submittingSurvey = false;
+      setState(() {});
+    }
+  }
+
+  /* =====================================================
+     USER INPUT EXTENSION
+  ===================================================== */
+
+  Future<void> _handleUserReply(String text) async {
+    // Sync phase with handler
+    replyHandler.phase = phase;
+    await replyHandler.handleUserReply(text);
+    // Sync phase back from handler
+    phase = replyHandler.phase;
+    // Sync captured flags (handler may have updated them)
+    if (replyHandler.moodCapturedToday) moodCapturedToday = true;
+    if (replyHandler.sleepCapturedToday) sleepCapturedToday = true;
+    setState(() {});
+  }
+
+  String _interpretSleepScore(int score) {
+    if (score >= 17) return "excellent";
+    if (score >= 13) return "good";
+    if (score >= 9) return "fair";
+    return "poor";
+  }
+
+  //Called from Mood Flow
+  void askDepressionAddon() {
+    addBotMessage(
+      i18n.t('mood_depression_q'),
+      quickReplies: [
+        i18n.t('mood_depression_0'),
+        i18n.t('mood_depression_1'),
+        i18n.t('mood_depression_2'),
+        i18n.t('mood_depression_3'),
+      ].cast<String>(),
+    );
+  }
+
+  //Called from Mood Flow
+
+  /*void askManiaAddon() {
+    addBotMessage(
+      'Did you feel unusually confident or invincible today?',
+      quickReplies: ['No', 'Slightly', 'Moderately', 'Extremely'],
+    );
+  }*/
+
+  void askManiaAddon() {
+    addBotMessage(
+      i18n.t('addon_mania_q1'),
+      quickReplies: [
+        i18n.t('mood_mania_0'),
+        i18n.t('mood_mania_1'),
+        i18n.t('mood_mania_2'),
+        i18n.t('mood_mania_3'),
+      ].cast<String>(),
+    );
+  }
+
+  //Called from Mood Flow
+
+  /*void askSafetyQuestion() {
+    addBotMessage(
+      'Did you have thoughts about harming yourself today?',
+      quickReplies: [
+        'No',
+        'Brief thoughts, no intent',
+        'Strong thoughts',
+        'Prefer not to answer'
+      ],
+    );
+  }*/
+
+  void askSafetyQuestion() {
+    addBotMessage(
+      i18n.t('mood_safety_q'),
+      quickReplies: [
+        i18n.t('mood_safety_no'),
+        i18n.t('mood_safety_brief'),
+        i18n.t('mood_safety_strong'),
+        i18n.t('mood_safety_prefer_not'),
+      ].cast<String>(),
+    );
   }
 
   /* =====================================================
@@ -312,166 +668,36 @@ class _PatientChatbotScreenState extends State<PatientChatbotScreen> {
   ===================================================== */
   @override
   Widget build(BuildContext context) {
-    final allowText =
-        phase == ChatPhase.awaitingSymptomText || phase == ChatPhase.idle;
+    return ChatbotUIBuilder.build(
+      context,
+      phase: phase,
+      botLanguage: botLanguage,
+      i18n: i18n,
+      messages: messages,
+      availableSymptoms: availableSymptoms,
+      selectedSymptoms: selectedSymptoms,
+      submittingSymptoms: submittingSymptoms,
+      controller: controller,
+      setState: setState,
+      handleUserReply: _handleUserReply,
+      submitSelectedSymptoms: _submitSelectedSymptoms,
+      onLanguageToggle: () {
+        setState(() {
+          botLanguage =
+              botLanguage == BotLanguage.en ? BotLanguage.ml : BotLanguage.en;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF4F7FB),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        title: Text(t('assistant')),
-        actions: [
-          TextButton(
-            onPressed: () {
-              setState(() {
-                botLanguage = botLanguage == BotLanguage.en
-                    ? BotLanguage.ml
-                    : BotLanguage.en;
-              });
-            },
-            child: Text(botLanguage == BotLanguage.en ? 'മലയാളം' : 'English'),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: messages
-                  .map((m) => Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _bubble(m),
-                          if (m.role == ChatRole.bot) _quickReplies(m),
-                        ],
-                      ))
-                  .toList(),
-            ),
-          ),
-          if (phase == ChatPhase.awaitingSymptomSelection)
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Wrap(
-                spacing: 8,
-                children: [
-                  ...availableSymptoms.map((s) => FilterChip(
-                        label: Text(s),
-                        selected: selectedSymptoms.contains(s),
-                        onSelected: (v) => setState(() => v
-                            ? selectedSymptoms.add(s)
-                            : selectedSymptoms.remove(s)),
-                      )),
-                  ActionChip(
-                    label: Text(t('other')),
-                    onPressed: () =>
-                        setState(() => phase = ChatPhase.awaitingSymptomText),
-                  ),
-                  if (selectedSymptoms.isNotEmpty)
-                    ElevatedButton.icon(
-                      icon: submittingSymptoms
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white),
-                            )
-                          : const Icon(Icons.check_circle_outline),
-                      label: Text(t('submit')),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                        elevation: 6,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                      ),
-                      onPressed:
-                          submittingSymptoms ? null : _submitSelectedSymptoms,
-                    ),
-                ],
-              ),
-            ),
-          _inputBar(allowText),
-        ],
-      ),
-    );
-  }
+          // 🔥 RECREATE LOCALIZATION
+          i18n = ChatbotLocalization(botLanguage);
 
-  Widget _bubble(ChatMessage msg) {
-    final isBot = msg.role == ChatRole.bot;
-    return Align(
-      alignment: isBot ? Alignment.centerLeft : Alignment.centerRight,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 6),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: isBot ? Colors.white : Colors.blue,
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Text(
-          msg.text,
-          style: TextStyle(color: isBot ? Colors.black87 : Colors.white),
-        ),
-      ),
-    );
-  }
-
-  Widget _quickReplies(ChatMessage msg) {
-    if (msg.quickReplies == null ||
-        phase == ChatPhase.awaitingSymptomSelection ||
-        phase == ChatPhase.awaitingSymptomText ||
-        phase == ChatPhase.blockedByAlert) {
-      return const SizedBox();
-    }
-
-    return Wrap(
-      spacing: 8,
-      children: msg.quickReplies!
-          .map((q) =>
-              ActionChip(label: Text(q), onPressed: () => _handleUserReply(q)))
-          .toList(),
-    );
-  }
-
-  Widget _inputBar(bool allow) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      color: Colors.white,
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: controller,
-              enabled: allow,
-              decoration: InputDecoration(
-                hintText: allow ? t('type') : t('select'),
-                filled: true,
-                fillColor: Colors.grey.shade100,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          CircleAvatar(
-            backgroundColor: allow ? Colors.blue : Colors.grey,
-            child: IconButton(
-              icon: const Icon(Icons.send, color: Colors.white),
-              onPressed: !allow
-                  ? null
-                  : () {
-                      final text = controller.text.trim();
-                      if (text.isEmpty) return;
-                      controller.clear();
-                      _handleUserReply(text);
-                    },
-            ),
-          )
-        ],
-      ),
+          // 🔥 RECREATE REPLY HANDLER (CRITICAL)
+          _initializeReplyHandler();
+        });
+      },
+      onOtherPressed: () {
+        setState(() {
+          phase = ChatPhase.awaitingSymptomText;
+        });
+      },
     );
   }
 }

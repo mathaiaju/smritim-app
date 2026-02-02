@@ -1,0 +1,411 @@
+import '../chatbot/chatbot_state.dart';
+
+class MoodResult {
+  final String summary;
+  final String interpretation;
+
+  MoodResult(this.summary, this.interpretation);
+}
+
+class MoodFlow {
+  static bool _depressionAsked = false;
+  static bool _maniaAsked = false;
+  static bool _safetyAsked = false;
+  static void start(dynamic screen) {
+    screen.mood.clear();
+
+    _depressionAsked = false;
+    _maniaAsked = false;
+    _safetyAsked = false;
+
+    screen.activeFlow = ActiveFlow.mood;
+    screen.phase = ChatPhase.moodStart;
+
+    screen.addBotMessage(screen.i18n.t('mood_intro'));
+
+    // 🔑 AUTO-ADVANCE — DO NOT WAIT FOR USER INPUT
+    handleMoodStart(screen);
+  }
+
+  static void handleMoodStart(dynamic screen) {
+    screen.phase = ChatPhase.moodQ1;
+
+    screen.addBotMessage(
+      'How has your mood been today?',
+      quickReplies: ['Very low', 'Low', 'Balanced / okay', 'High', 'Very high'],
+    );
+
+    screen.setState(() {});
+  }
+
+  static void handleMoodQ1(dynamic screen, String text) {
+    screen.addUserMessage(text);
+
+    screen.mood['overall_mood'] = mapMoodLevel(text);
+    screen.moodScore = screen.mood['overall_mood'];
+
+    screen.phase = ChatPhase.moodQ2;
+
+    screen.addBotMessage(
+      'How was your energy level today?',
+      quickReplies: [
+        'Very low',
+        'Slightly low',
+        'Normal',
+        'Higher than usual',
+        'Much higher than usual'
+      ],
+    );
+    screen.setState(() {});
+  }
+
+  static void handleMoodQ2(dynamic screen, String text) {
+    screen.addUserMessage(text);
+
+    screen.mood['energy_level'] = mapEnergyLevel(text);
+    screen.energyScore = screen.mood['energy_level'];
+
+    screen.phase = ChatPhase.moodQ3;
+
+    screen.addBotMessage(
+      'How much did you sleep last night?',
+      quickReplies: [
+        'More than usual',
+        'About usual',
+        'Slightly less than usual',
+        'Much less than usual'
+      ],
+    );
+    screen.setState(() {});
+  }
+
+  static void handleMoodQ3(dynamic screen, String text) {
+    screen.addUserMessage(text);
+
+    screen.mood['sleep_change'] = mapSleepChange(text);
+    screen.sleepChangeScore = screen.mood['sleep_change'];
+
+    screen.phase = ChatPhase.moodQ4;
+
+    screen.addBotMessage(
+      'How fast were your thoughts today?',
+      quickReplies: [
+        'Slower than usual',
+        'Normal',
+        'A bit fast',
+        'Very fast / racing'
+      ],
+    );
+    screen.setState(() {});
+  }
+
+  static void handleMoodQ4(dynamic screen, String text) {
+    screen.addUserMessage(text);
+
+    screen.mood['thought_speed'] = mapThoughtSpeed(text);
+    screen.thoughtSpeedScore = screen.mood['thought_speed'];
+
+    screen.phase = ChatPhase.moodQ5;
+
+    screen.addBotMessage(
+      'Did you feel more talkative, impulsive, or driven than usual today?',
+      quickReplies: ['No', 'Slightly', 'Moderately', 'A lot'],
+    );
+    screen.setState(() {});
+  }
+
+  static void handleMoodQ5(dynamic screen, String text) {
+    screen.addUserMessage(text);
+
+    screen.mood['impulsivity'] = mapImpulsivity(text);
+    screen.impulsivityScore = screen.mood['impulsivity'];
+
+    screen.phase = ChatPhase.moodQ6;
+
+    screen.addBotMessage(
+      'How well did you manage your usual daily activities today?',
+      quickReplies: ['Very poorly', 'Poorly', 'Okay', 'Well', 'Very well'],
+    );
+    screen.setState(() {});
+  }
+
+  static Future<void> handleMoodQ6(dynamic screen, String text) async {
+    screen.addUserMessage(text);
+
+    screen.mood['daily_function'] = mapDailyFunction(text);
+    screen.dailyFunctionScore = screen.mood['daily_function'];
+
+    // 🔑 RESET FLAGS BEFORE EVALUATION
+    screen.triggerDepressionAddon = false;
+    screen.triggerManiaAddon = false;
+    screen.triggerSafetyCheck = false;
+
+    // 🔑 RE-EVALUATE USING UPDATED SCORES
+    final mood = screen.moodScore ?? 3;
+    final energy = screen.energyScore ?? 3;
+    final sleep = screen.sleepChangeScore ?? 2;
+    final thoughts = screen.thoughtSpeedScore ?? 2;
+    final impulsivity = screen.impulsivityScore ?? 1;
+
+// 1️⃣ SAFETY ALWAYS FIRST
+    if (mood <= 1 && !_safetyAsked) {
+      _safetyAsked = true;
+      screen.phase = ChatPhase.safetyCheck;
+      screen.triggerSafetyCheck = true;
+      screen.askSafetyQuestion();
+      screen.setState(() {});
+      return;
+    }
+
+// 2️⃣ DEPRESSION SCREEN
+// Low mood/energy + oversleeping OR poor functioning
+    if (!_depressionAsked &&
+        (mood <= 2 || energy <= 2) &&
+        (sleep == 1 || screen.dailyFunctionScore! <= 2)) {
+      _depressionAsked = true;
+      screen.phase = ChatPhase.depAddon1;
+      screen.askDepressionAddon();
+      screen.setState(() {});
+      return;
+    }
+
+// 3️⃣ MANIA SCREEN
+// High mood/energy + reduced sleep + activation
+    if (!_maniaAsked &&
+        (mood >= 4 || energy >= 4) &&
+        sleep >= 3 &&
+        (thoughts >= 3 || impulsivity >= 3)) {
+      _maniaAsked = true;
+      screen.phase = ChatPhase.maniaAddon1;
+      screen.triggerManiaAddon = true;
+      screen.askManiaAddon();
+      screen.setState(() {});
+      return;
+    }
+
+// 4️⃣ DONE
+    await _finishMoodFlow(screen);
+  }
+
+  static void handleDepressionAddon1(dynamic screen, String text) {
+    screen.addUserMessage(text);
+    screen.mood['hopelessness'] = mapHopelessness(text);
+
+    screen.phase = ChatPhase.depAddon2;
+
+    screen.addBotMessage(
+      'Did you feel slowed down or exhausted?',
+      quickReplies: ['No', 'Slightly', 'Moderately', 'Severely'],
+    );
+    screen.setState(() {});
+  }
+
+  static void handleDepressionAddon2(dynamic screen, String text) {
+    final hopelessness = screen.mood['hopelessness'] ?? 1;
+
+    screen.addUserMessage(text);
+    screen.mood['exhaustion'] = mapExhaustion(text);
+    final exhaustion = screen.mood['exhaustion']!;
+
+    // Safety always wins
+    if (screen.triggerSafetyCheck && !_safetyAsked) {
+      _safetyAsked = true;
+      screen.phase = ChatPhase.safetyCheck;
+      screen.askSafetyQuestion();
+      screen.setState(() {});
+      return;
+    }
+
+    // Mania next if applicable
+    if (screen.triggerManiaAddon && !_maniaAsked) {
+      _maniaAsked = true;
+      screen.phase = ChatPhase.maniaAddon1;
+      screen.askManiaAddon();
+      screen.setState(() {});
+      return;
+    }
+
+    if ((hopelessness >= 3 || exhaustion >= 3) && !_safetyAsked) {
+      _safetyAsked = true;
+      screen.phase = ChatPhase.safetyCheck;
+      screen.askSafetyQuestion();
+      screen.setState(() {});
+      return;
+    }
+
+    _finishMoodFlow(screen);
+  }
+
+  static void handleManiaAddon(dynamic screen, String text) {
+    screen.addUserMessage(text);
+    screen.mood['confidence'] = mapConfidence(text);
+
+    screen.phase = ChatPhase.maniaAddon2;
+    screen.addBotMessage(
+      'Did you take risks or spend more than usual?',
+      quickReplies: ['No', 'Slightly', 'Moderately', 'A lot'],
+    );
+    screen.setState(() {});
+  }
+
+  static Future<void> handleManiaAddon2(dynamic screen, String text) async {
+    screen.addUserMessage(text);
+    screen.mood['risk_taking'] = mapImpulsivity(text);
+
+    await _finishMoodFlow(screen); // 🔥 THIS WAS MISSING
+    screen.setState(() {});
+  }
+
+  static Future<void> handleSafetyCheck(dynamic screen, String text) async {
+    screen.addUserMessage(text);
+    screen.mood['self_harm_thoughts'] = mapSelfHarmThoughts(text);
+
+    await _finishMoodFlow(screen);
+    screen.setState(() {});
+  }
+
+  static bool _finishing = false;
+
+  static Future<void> _finishMoodFlow(dynamic screen) async {
+    if (_finishing) return;
+    _finishing = true;
+
+    final result = interpretMood(screen.mood);
+
+    screen.addBotMessage(result.summary);
+    if (result.interpretation.isNotEmpty) {
+      screen.addBotMessage(result.interpretation);
+    }
+
+    screen.moodCapturedToday = true;
+
+    await screen.submitMood();
+
+    screen.phase = ChatPhase.idle;
+    screen.activeFlow = ActiveFlow.none;
+
+    _finishing = false;
+    screen.setState(() {});
+  }
+
+  static MoodResult interpretMood(Map<String, int> moodAnswers) {
+    final mood = moodAnswers['overall_mood'] ?? 3;
+    final energy = moodAnswers['energy_level'] ?? 3;
+    final sleepChange = moodAnswers['sleep_change'] ?? 2;
+    final thoughtSpeed = moodAnswers['thought_speed'] ?? 2;
+    final confidence = moodAnswers['confidence'] ?? 1;
+    final risk = moodAnswers['risk_taking'] ?? 1;
+
+    String summary = '';
+    String interpretation = '';
+
+    // 🔴 MANIA / HYPOMANIA
+    if ((mood >= 4 || energy >= 4) &&
+        sleepChange >= 3 &&
+        (thoughtSpeed >= 3 || confidence >= 3 || risk >= 3)) {
+      summary = 'Higher energy + reduced sleep detected';
+      interpretation =
+          'Your energy has been higher with less sleep and increased activity. Monitor patterns and consider discussing with your clinician.';
+    }
+
+    // 🔵 DEPRESSION
+    else if (mood <= 2 && energy <= 2 && sleepChange == 1) {
+      summary = 'Lower mood + reduced functioning';
+      interpretation =
+          'Your mood and energy have been lower, with increased sleep.';
+    }
+
+    // 🟢 STABLE
+    else {
+      summary = 'Balanced mood and energy levels';
+      interpretation =
+          'You seem to be in a stable phase. Keep up the good work!';
+    }
+
+    return MoodResult(summary, interpretation);
+  }
+
+  // Mapping functions
+  static int mapMoodLevel(String text) {
+    if (text.contains('Very low')) return 1;
+    if (text.contains('Low')) return 2;
+    if (text.contains('Balanced') || text.contains('okay')) return 3;
+    if (text.contains('High') && !text.contains('Very')) return 4;
+    if (text.contains('Very high')) return 5;
+    return 3;
+  }
+
+  static int mapEnergyLevel(String text) {
+    if (text.contains('Very low')) return 1;
+    if (text.contains('Slightly low')) return 2;
+    if (text.contains('Normal')) return 3;
+    if (text.contains('Higher than usual')) return 4;
+    if (text.contains('Much higher than usual')) return 5;
+    return 3;
+  }
+
+  static int mapSleepChange(String text) {
+    if (text.contains('More than usual')) return 1;
+    if (text.contains('About usual')) return 2;
+    if (text.contains('Slightly less')) return 3;
+    if (text.contains('Much less')) return 4;
+    return 2;
+  }
+
+  static int mapThoughtSpeed(String text) {
+    if (text.contains('Slower')) return 1;
+    if (text.contains('Normal')) return 2;
+    if (text.contains('A bit fast')) return 3;
+    if (text.contains('Very fast') || text.contains('racing')) return 4;
+    return 2;
+  }
+
+  static int mapImpulsivity(String text) {
+    if (text.contains('No')) return 1;
+    if (text.contains('Slightly')) return 2;
+    if (text.contains('Moderately')) return 3;
+    if (text.contains('A lot')) return 4;
+    return 1;
+  }
+
+  static int mapDailyFunction(String text) {
+    if (text.contains('Very poorly')) return 1;
+    if (text.contains('Poorly')) return 2;
+    if (text.contains('Okay')) return 3;
+    if (text.contains('Well') && !text.contains('Very')) return 4;
+    if (text.contains('Very well')) return 5;
+    return 3;
+  }
+
+  static int mapHopelessness(String text) {
+    if (text.contains('Not at all')) return 1;
+    if (text.contains('A little')) return 2;
+    if (text.contains('Quite a bit')) return 3;
+    if (text.contains('Most of the day')) return 4;
+    return 1;
+  }
+
+  static int mapExhaustion(String text) {
+    if (text.contains('No')) return 1;
+    if (text.contains('Slightly')) return 2;
+    if (text.contains('Moderately')) return 3;
+    if (text.contains('Severely')) return 4;
+    return 1;
+  }
+
+  static int mapConfidence(String text) {
+    if (text.contains('No')) return 1;
+    if (text.contains('Slightly')) return 2;
+    if (text.contains('Moderately')) return 3;
+    if (text.contains('Extremely')) return 4;
+    return 1;
+  }
+
+  static int mapSelfHarmThoughts(String text) {
+    if (text.contains('No')) return 1;
+    if (text.contains('Brief thoughts')) return 2;
+    if (text.contains('Strong thoughts')) return 3;
+    if (text.contains('Prefer not to answer')) return 4;
+    return 1;
+  }
+}

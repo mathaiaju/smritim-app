@@ -1,15 +1,13 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
-import '../config/app_config.dart';
 
-// 👇 REQUIRED for Flutter Web download
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
+import '../config/app_config.dart';
+import '../utils/file_download.dart';
 
 /// Central API client for SMRITI-M
 class ApiClient {
-  /// 🔧 CHANGE BASE URL IF NEEDED
+  /// Base API URL (do NOT hardcode – comes from AppConfig)
   static final String baseUrl = AppConfig.apiBaseUrl;
 
   static String? _token;
@@ -28,6 +26,12 @@ class ApiClient {
   }
 
   static bool get isLoggedIn => _token != null;
+
+  static bool biometricEnabled = false;
+
+  static void enableBiometric(bool enabled) {
+    biometricEnabled = enabled;
+  }
 
   static void logout() {
     _token = null;
@@ -52,12 +56,12 @@ class ApiClient {
      HTTP HELPERS
   ===================================================== */
 
-  static Future<http.Response> get(String path) async {
+  static Future<http.Response> get(String path) {
     final uri = Uri.parse('$baseUrl$path');
     return http.get(uri, headers: _headers());
   }
 
-  static Future<http.Response> post(String path) async {
+  static Future<http.Response> post(String path) {
     final uri = Uri.parse('$baseUrl$path');
     return http.post(uri, headers: _headers());
   }
@@ -65,7 +69,7 @@ class ApiClient {
   static Future<http.Response> postJson(
     String path,
     Map<String, dynamic> body,
-  ) async {
+  ) {
     final uri = Uri.parse('$baseUrl$path');
     return http.post(
       uri,
@@ -77,7 +81,7 @@ class ApiClient {
   static Future<http.Response> putJson(
     String path,
     Map<String, dynamic> body,
-  ) async {
+  ) {
     final uri = Uri.parse('$baseUrl$path');
     return http.put(
       uri,
@@ -86,47 +90,43 @@ class ApiClient {
     );
   }
 
-  static Future<http.Response> delete(String path) async {
+  static Future<http.Response> delete(String path) {
     final uri = Uri.parse('$baseUrl$path');
     return http.delete(uri, headers: _headers());
   }
 
   /* =====================================================
-   🔽 DOWNLOAD (PDF / FILES) — AUTH SAFE
-   Works with Authorization header
-===================================================== */
+     FILE DOWNLOAD (WEB SAFE, MOBILE SAFE)
+  ===================================================== */
 
-  static Future<void> download(String path,
-      {String fileName = 'document.pdf'}) async {
+  static Future<void> download(
+    String path, {
+    String fileName = 'document.pdf',
+  }) async {
     final uri = Uri.parse('$baseUrl$path');
 
     final res = await http.get(
       uri,
-      headers: _headers(), // ✅ Authorization header included
+      headers: _headers(),
     );
 
     if (res.statusCode != 200) {
       throw Exception('Download failed (${res.statusCode})');
     }
 
-    // ignore: avoid_web_libraries_in_flutter
-    final blob = html.Blob([res.bodyBytes], 'application/pdf');
-
-    final url = html.Url.createObjectUrlFromBlob(blob);
-    final anchor = html.AnchorElement(href: url)
-      ..setAttribute('download', fileName)
-      ..click();
-
-    html.Url.revokeObjectUrl(url);
+    // ✅ Delegates to platform-specific implementation
+    downloadFile(res.bodyBytes, fileName);
   }
 
   /* =====================================================
-     OPTIONAL: RAW BINARY (mobile / desktop use)
+     RAW BYTES (OPTIONAL – MOBILE USE)
   ===================================================== */
 
   static Future<Uint8List> downloadBytes(String path) async {
+    final uri = Uri.parse('$baseUrl$path');
+
     final res = await http.get(
-      Uri.parse('$baseUrl$path'),
+      uri,
       headers: _headers(),
     );
 

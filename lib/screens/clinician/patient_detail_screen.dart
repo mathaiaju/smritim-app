@@ -239,8 +239,8 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
 
                 const SizedBox(height: 28),
 
-                /// ➕ ADD MEDICATION
-                ElevatedButton.icon(
+                /// ➕ ADD MEDICATION [MOVING THIS TO ADMIN]
+                /* ElevatedButton.icon(
                   icon: const Icon(Icons.add),
                   label: const Text(
                     'View Medications',
@@ -263,7 +263,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                     );
                     if (changed == true) loadSummary();
                   },
-                ),
+                ),*/
               ],
             ),
     );

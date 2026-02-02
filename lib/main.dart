@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/login_screen.dart';
+import 'screens/splash_screen.dart';
 
 /// 🌗 GLOBAL THEME NOTIFIER (used by all scaffolds)
 final ValueNotifier<ThemeMode> themeNotifier =
@@ -40,7 +40,7 @@ class SmritiSaarathiAdminApp extends StatelessWidget {
             ),
           ),
 
-          home: const LoginScreen(),
+          home: const SplashScreen(),
         );
       },
     );

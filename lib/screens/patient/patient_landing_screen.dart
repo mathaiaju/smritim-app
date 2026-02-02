@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../api_client.dart';
-import 'patient_chatbot_screen.dart';
 import '../../widgets/patient_scaffold.dart';
+import 'patient_chatbot_screen.dart';
 
 class PatientLandingScreen extends StatefulWidget {
   const PatientLandingScreen({super.key});

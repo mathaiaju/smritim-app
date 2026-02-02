@@ -398,7 +398,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
           Align(
             alignment: Alignment.centerRight,
             //Moving to the ADMIN SCREEN
-            /*child: ElevatedButton(
+            child: ElevatedButton(
               onPressed: () async {
                 await Navigator.push(
                   context,
@@ -409,7 +409,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                 await loadMedications();
               },
               child: const Text('Add Schedule'),
-            ),*/
+            ),
           ),
         ]),
       ),

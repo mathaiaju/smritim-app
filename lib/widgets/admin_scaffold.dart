@@ -15,6 +15,7 @@ import '../screens/alerts_screen.dart';
 import '../screens/pvpi_cases_screen.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../main.dart'; // 👈 themeNotifier
+import '../screens/settings/settings_screen.dart';
 
 class AdminScaffold extends StatelessWidget {
   final String title;
@@ -59,9 +60,18 @@ class AdminScaffold extends StatelessWidget {
           PopupMenuButton<String>(
             icon: const Icon(Icons.account_circle, size: 28),
             onSelected: (v) {
+              if (v == 'settings') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const SettingsScreen(),
+                  ),
+                );
+              }
               if (v == 'logout') _logout(context);
             },
             itemBuilder: (_) => [
+              /// 👤 USER INFO (DISABLED)
               PopupMenuItem(
                 enabled: false,
                 child: Column(
@@ -78,7 +88,22 @@ class AdminScaffold extends StatelessWidget {
                   ],
                 ),
               ),
+
               const PopupMenuDivider(),
+
+              /// ⚙️ SETTINGS
+              const PopupMenuItem(
+                value: 'settings',
+                child: Row(
+                  children: [
+                    Icon(Icons.settings, size: 18),
+                    SizedBox(width: 8),
+                    Text('Settings'),
+                  ],
+                ),
+              ),
+
+              /// 🚪 LOGOUT
               const PopupMenuItem(
                 value: 'logout',
                 child: Row(
