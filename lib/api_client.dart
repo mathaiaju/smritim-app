@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 import '../config/app_config.dart';
 import '../utils/file_download.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Central API client for SMRITI-M
 class ApiClient {
@@ -17,25 +18,66 @@ class ApiClient {
      AUTH / SESSION
   ===================================================== */
 
-  static void setSession({
+  static Future<void> setSession({
     required String token,
     required Map<String, dynamic> user,
-  }) {
+  }) async {
     _token = token;
     currentUser = user;
+    
+    // Persist to SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('token', token);
+    await prefs.setString('user', jsonEncode(user));
+    
+    // Load biometric preference for this user
+    final userId = user['id']?.toString() ?? user['username']?.toString() ?? '';
+    await prefs.setString('last_user_id', userId);
+    biometricEnabled = prefs.getBool('biometric_$userId') ?? false;
   }
 
   static bool get isLoggedIn => _token != null;
 
   static bool biometricEnabled = false;
 
-  static void enableBiometric(bool enabled) {
-    biometricEnabled = enabled;
+  /// Load session and biometric preference at app startup
+  static Future<void> loadSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    _token = prefs.getString('token');
+    final userJson = prefs.getString('user');
+    if (userJson != null) {
+      currentUser = jsonDecode(userJson);
+      // Load biometric preference for this specific user
+      final userId = currentUser!['id']?.toString() ?? currentUser!['username']?.toString() ?? '';
+      biometricEnabled = prefs.getBool('biometric_$userId') ?? false;
+    } else {
+      // No session, but check if last user had biometric enabled
+      final lastUserId = prefs.getString('last_user_id');
+      if (lastUserId != null) {
+        biometricEnabled = prefs.getBool('biometric_$lastUserId') ?? false;
+      }
+    }
   }
 
-  static void logout() {
+  /// Enable / disable biometric and persist choice per-user
+  static Future<void> enableBiometric(bool enabled) async {
+    biometricEnabled = enabled;
+    if (currentUser != null) {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = currentUser!['id']?.toString() ?? currentUser!['username']?.toString() ?? '';
+      await prefs.setBool('biometric_$userId', enabled);
+    }
+  }
+
+  static Future<void> logout() async {
     _token = null;
     currentUser = null;
+    // Keep biometricEnabled flag - don't reset it
+    
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('token');
+    await prefs.remove('user');
+    // Note: We keep per-user biometric preferences in storage
   }
 
   static Map<String, String> _headers({bool json = false}) {
@@ -101,7 +143,7 @@ class ApiClient {
 
   static Future<void> download(
     String path, {
-    String fileName = 'document.pdf',
+    required String fileName,
   }) async {
     final uri = Uri.parse('$baseUrl$path');
 
@@ -114,8 +156,7 @@ class ApiClient {
       throw Exception('Download failed (${res.statusCode})');
     }
 
-    // ✅ Delegates to platform-specific implementation
-    downloadFile(res.bodyBytes, fileName);
+    await downloadFile(res.bodyBytes, fileName);
   }
 
   /* =====================================================

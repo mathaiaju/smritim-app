@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../api_client.dart';
 import '../utils/biometric_auth.dart';
 import 'login_screen.dart';
@@ -18,6 +21,7 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _fadeController;
+  final _secureStorage = const FlutterSecureStorage();
 
   @override
   void initState() {
@@ -35,15 +39,87 @@ class _SplashScreenState extends State<SplashScreen>
   Future<void> _navigate() async {
     Widget target = const LoginScreen();
 
+    print('🔐 Biometric check:');
+    print('  - isLoggedIn: ${ApiClient.isLoggedIn}');
+    print('  - biometricEnabled: ${ApiClient.biometricEnabled}');
+    print('  - currentUser: ${ApiClient.currentUser}');
+
     if (ApiClient.isLoggedIn) {
-      if (ApiClient.biometricEnabled &&
-          await BiometricAuth.isSupported() &&
-          await BiometricAuth.canAuthenticate()) {
+      print('  - Taking isLoggedIn branch');
+      final isSupported = await BiometricAuth.isSupported();
+      final canAuth = await BiometricAuth.canAuthenticate();
+      
+      print('  - isSupported: $isSupported');
+      print('  - canAuthenticate: $canAuth');
+
+      if (ApiClient.biometricEnabled && isSupported && canAuth) {
+        print('  - Showing biometric prompt...');
         final ok = await BiometricAuth.authenticate();
+        print('  - Biometric result: $ok');
         target = ok ? _routeByRole() : const LoginScreen();
       } else {
+        print('  - Skipping biometric (not enabled or not available)');
         target = _routeByRole();
       }
+    } else if (ApiClient.biometricEnabled) {
+      // No session but biometric enabled - try auto-login
+      final isSupported = await BiometricAuth.isSupported();
+      final canAuth = await BiometricAuth.canAuthenticate();
+      
+      if (isSupported && canAuth) {
+        print('  - Attempting biometric auto-login...');
+        final ok = await BiometricAuth.authenticate();
+        
+        if (ok) {
+          // Get last user ID from SharedPreferences
+          final prefs = await SharedPreferences.getInstance();
+          final lastUserId = prefs.getString('last_user_id');
+          print('  - Last user ID: $lastUserId');
+          
+          if (lastUserId != null) {
+            final storedUser = await _secureStorage.read(key: 'bio_user_$lastUserId');
+            final storedPass = await _secureStorage.read(key: 'bio_pass_$lastUserId');
+            print('  - Stored user: $storedUser');
+            print('  - Stored pass: ${storedPass != null ? "***" : "null"}');
+            
+            if (storedUser != null && storedPass != null) {
+              try {
+                print('  - Attempting login...');
+                final res = await ApiClient.postJson(
+                  '/auth/login',
+                  {'username': storedUser, 'password': storedPass},
+                );
+                
+                print('  - Login response: ${res.statusCode}');
+                if (res.statusCode == 200) {
+                  final data = jsonDecode(res.body);
+                  await ApiClient.setSession(
+                    token: data['token'],
+                    user: {
+                      'username': storedUser,
+                      'role': data['role'],
+                      'hospital_id': data['hospital_id'],
+                      'id': data['id'],
+                    },
+                  );
+                  print('  - Auto-login successful!');
+                  target = _routeByRole();
+                } else {
+                  print('  - Login failed: ${res.body}');
+                }
+              } catch (e) {
+                print('  - Auto-login failed: $e');
+              }
+            } else {
+              print('  - No stored credentials found');
+            }
+          } else {
+            print('  - No last_user_id found');
+          }
+        }
+      }
+    } else {
+      print('  - Not logged in, showing login screen');
     }
 
     if (!mounted) return;

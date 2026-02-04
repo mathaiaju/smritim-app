@@ -3,8 +3,6 @@ import 'dart:typed_data';
 Future<void> downloadFileImpl(
   Uint8List bytes,
   String fileName,
-) {
-  throw UnsupportedError(
-    'File download is not supported on this platform',
-  );
+) async {
+  throw UnsupportedError('File download not supported on this platform');
 }

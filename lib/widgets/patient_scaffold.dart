@@ -5,7 +5,8 @@ import '../screens/login_screen.dart';
 import '../screens/patient/patient_landing_screen.dart';
 import '../screens/patient/patient_chatbot_screen.dart';
 import '../screens/alerts_screen.dart';
-import '../main.dart'; // themeNotifier
+import '../main.dart';
+import '../utils/biometric_auth.dart';
 
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -176,6 +177,9 @@ class PatientScaffold extends StatelessWidget {
                 );
               },
             ),
+            
+            /* 🔐 BIOMETRIC */
+            _BiometricToggle(),
             const SizedBox(height: 12),
             Center(
               child: Text(
@@ -233,4 +237,61 @@ class PatientScaffold extends StatelessWidget {
   }
 
   Widget _divider() => const Divider(height: 1);
+}
+
+/* =====================================================
+   BIOMETRIC TOGGLE WIDGET
+===================================================== */
+class _BiometricToggle extends StatefulWidget {
+  const _BiometricToggle();
+
+  @override
+  State<_BiometricToggle> createState() => _BiometricToggleState();
+}
+
+class _BiometricToggleState extends State<_BiometricToggle> {
+  bool supported = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkSupport();
+  }
+
+  Future<void> _checkSupport() async {
+    supported = await BiometricAuth.isSupported();
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SwitchListTile(
+      title: const Text('Biometric Login'),
+      subtitle: Text(
+        supported
+            ? 'Use fingerprint/face authentication'
+            : 'Not supported on this device',
+        style: const TextStyle(fontSize: 12),
+      ),
+      value: ApiClient.biometricEnabled,
+      onChanged: supported
+          ? (v) async {
+              if (v) {
+                // Authenticate before enabling
+                final authenticated = await BiometricAuth.authenticate();
+                if (!authenticated) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Authentication failed')),
+                    );
+                  }
+                  return;
+                }
+              }
+              await ApiClient.enableBiometric(v);
+              if (mounted) setState(() {});
+            }
+          : null,
+    );
+  }
 }

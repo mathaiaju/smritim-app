@@ -57,6 +57,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
     try {
       await ApiClient.download(
         '/clinicians/patient/${widget.patient['id']}/export-pdf',
+        fileName: 'SMRITI_M_${widget.patient['full_name']}_Weekly_Report.pdf',
       );
 
       if (!mounted) return;

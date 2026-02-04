@@ -34,10 +34,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: const Text("Use fingerprint / face authentication"),
             value: ApiClient.biometricEnabled,
             onChanged: supported
-                ? (v) {
-                    setState(() {
-                      ApiClient.enableBiometric(v);
-                    });
+                ? (v) async {
+                    if (v) {
+                      // Check if biometric can be used
+                      final canAuth = await BiometricAuth.canAuthenticate();
+                      if (!canAuth) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('No biometric enrolled on this device. Please set up fingerprint or face unlock in device settings.'),
+                              duration: Duration(seconds: 4),
+                            ),
+                          );
+                        }
+                        return;
+                      }
+                      
+                      // Authenticate before enabling
+                      final authenticated = await BiometricAuth.authenticate();
+                      if (!authenticated) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Authentication failed or cancelled')),
+                          );
+                        }
+                        return;
+                      }
+                    }
+                    await ApiClient.enableBiometric(v);
+                    if (mounted) setState(() {});
                   }
                 : null,
           ),

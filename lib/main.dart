@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'screens/splash_screen.dart';
+import 'api_client.dart';
 
 /// 🌗 GLOBAL THEME NOTIFIER (used by all scaffolds)
 final ValueNotifier<ThemeMode> themeNotifier =
     ValueNotifier<ThemeMode>(ThemeMode.light);
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await ApiClient.loadSession();
   runApp(const SmritiSaarathiAdminApp());
 }
 

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:smritim_app/screens/patient/patient_landing_screen.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../api_client.dart';
 import 'dashboard_screen.dart';
 import '../widgets/app_header.dart';
@@ -17,6 +18,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final username = TextEditingController();
   final password = TextEditingController();
   bool loading = false;
+  final _secureStorage = const FlutterSecureStorage();
 
   Future<void> login() async {
     try {
@@ -33,18 +35,26 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => loading = false);
 
       if (res.statusCode == 200) {
-        ApiClient.enableBiometric(true);
         final data = jsonDecode(res.body);
         final role = data['role'];
-        ApiClient.setSession(
+        
+        await ApiClient.setSession(
           token: data['token'],
           user: {
-            'username':
-                username.text.trim(), // CORRECT – store the actual string
+            'id': data['id'],
+            'username': username.text.trim(),
             'role': data['role'],
             'hospital_id': data['hospital_id'],
           },
         );
+        
+        // Store credentials securely if biometric is enabled
+        if (ApiClient.biometricEnabled) {
+          final userId = data['id']?.toString() ?? username.text.trim();
+          print('📝 Storing credentials for userId: $userId');
+          await _secureStorage.write(key: 'bio_user_$userId', value: username.text.trim());
+          await _secureStorage.write(key: 'bio_pass_$userId', value: password.text.trim());
+        }
 
         // ✅ ROLE-BASED ROUTING
         Widget target;
