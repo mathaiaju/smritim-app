@@ -13,6 +13,7 @@ class ApiClient {
 
   static String? _token;
   static Map<String, dynamic>? currentUser;
+  static String? _currentPassword;
 
   /* =====================================================
      AUTH / SESSION
@@ -72,12 +73,11 @@ class ApiClient {
   static Future<void> logout() async {
     _token = null;
     currentUser = null;
-    // Keep biometricEnabled flag - don't reset it
-    
+    // Keep biometricEnabled flag and last_user_id - don't reset them
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('token');
     await prefs.remove('user');
-    // Note: We keep per-user biometric preferences in storage
+    // Do NOT remove last_user_id or biometric preferences
   }
 
   static Map<String, String> _headers({bool json = false}) {
@@ -176,5 +176,16 @@ class ApiClient {
     }
 
     return res.bodyBytes;
+  }
+
+  static void setCurrentPassword(String password) {
+    _currentPassword = password;
+  }
+
+  static Future<String?> getCurrentPassword() async {
+    // If password is already set, return it
+    if (_currentPassword != null) return _currentPassword;
+    // Optionally, try to load from secure storage or prefs if needed
+    return null;
   }
 }

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../api_client.dart';
 
 import '../../chatbot/chatbot_state.dart';
@@ -62,7 +63,7 @@ class _PatientChatbotScreenState extends State<PatientChatbotScreen> {
 
   bool sleepCapturedToday = false;
 
-  late ChatbotLocalization i18n;
+  late ChatbotLocalization i18n = ChatbotLocalization(BotLanguage.en);
   late ChatbotReplyHandler replyHandler;
 
   final List<String> sleepQualityOptions = [
@@ -81,9 +82,29 @@ class _PatientChatbotScreenState extends State<PatientChatbotScreen> {
   @override
   void initState() {
     super.initState();
+    _initializeAsync();
+  }
+
+  Future<void> _initializeAsync() async {
+    await _loadLanguagePreference();
     i18n = ChatbotLocalization(botLanguage);
     _initializeReplyHandler();
-    _loadContext();
+    await _loadContext();
+    setState(() {});
+  }
+
+  Future<void> _loadLanguagePreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lang = prefs.getString('chatbot_language') ?? 'en';
+    botLanguage = lang == 'ml' ? BotLanguage.ml : BotLanguage.en;
+  }
+
+  Future<void> _saveLanguagePreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'chatbot_language',
+      botLanguage == BotLanguage.en ? 'en' : 'ml',
+    );
   }
 
   String _cleanSymptom(String s) {
@@ -691,6 +712,9 @@ class _PatientChatbotScreenState extends State<PatientChatbotScreen> {
 
           // 🔥 RECREATE REPLY HANDLER (CRITICAL)
           _initializeReplyHandler();
+          
+          // 💾 SAVE LANGUAGE PREFERENCE
+          _saveLanguagePreference();
         });
       },
       onOtherPressed: () {

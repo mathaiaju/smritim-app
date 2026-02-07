@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/splash_screen.dart';
 import 'api_client.dart';
 
@@ -9,7 +10,19 @@ final ValueNotifier<ThemeMode> themeNotifier =
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await ApiClient.loadSession();
+  await _loadThemePreference();
   runApp(const SmritiSaarathiAdminApp());
+}
+
+Future<void> _loadThemePreference() async {
+  final prefs = await SharedPreferences.getInstance();
+  final isDark = prefs.getBool('dark_mode') ?? false;
+  themeNotifier.value = isDark ? ThemeMode.dark : ThemeMode.light;
+}
+
+Future<void> saveThemePreference(bool isDark) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setBool('dark_mode', isDark);
 }
 
 class SmritiSaarathiAdminApp extends StatelessWidget {

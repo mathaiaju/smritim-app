@@ -87,95 +87,107 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   /// 📁 DIRECTORY
                   /// ======================
                   const _SectionHeader(title: 'User Directory'),
-                  _grid([
-                    DashboardTile(
-                      icon: Icons.person,
-                      label: 'Patients',
-                      color: Colors.blue.shade600,
-                      onTap: () => _go(const ViewPatientsScreen()),
-                    ),
-                    DashboardTile(
-                      icon: Icons.medical_services,
-                      label: 'Clinicians',
-                      color: Colors.teal.shade600,
-                      onTap: () => _go(const ViewCliniciansScreen()),
-                    ),
-                    DashboardTile(
-                      icon: Icons.groups,
-                      label: 'Caregivers',
-                      color: Colors.indigo.shade600,
-                      onTap: () => _go(const ViewCaregiversScreen()),
-                    ),
-                    DashboardTile(
-                      icon: Icons.admin_panel_settings,
-                      label: 'Admins',
-                      color: Colors.orange.shade700,
-                      onTap: () => _go(const ViewAdminsScreen()),
-                    ),
-                  ]),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: _grid([
+                      DashboardTile(
+                        icon: Icons.person,
+                        label: 'Patients',
+                        color: Colors.blue.shade600,
+                        onTap: () => _go(const ViewPatientsScreen()),
+                      ),
+                      DashboardTile(
+                        icon: Icons.medical_services,
+                        label: 'Clinicians',
+                        color: Colors.teal.shade600,
+                        onTap: () => _go(const ViewCliniciansScreen()),
+                      ),
+                      DashboardTile(
+                        icon: Icons.groups,
+                        label: 'Caregivers',
+                        color: Colors.indigo.shade600,
+                        onTap: () => _go(const ViewCaregiversScreen()),
+                      ),
+                      DashboardTile(
+                        icon: Icons.admin_panel_settings,
+                        label: 'Admins',
+                        color: Colors.orange.shade700,
+                        onTap: () => _go(const ViewAdminsScreen()),
+                      ),
+                    ]),
+                  ),
 
                   /// ======================
                   /// 👤 PEOPLE MANAGEMENT
                   /// ======================
                   const _SectionHeader(title: 'People Management'),
-                  _grid([
-                    DashboardTile(
-                      icon: Icons.person_add,
-                      label: 'Add Patient',
-                      color: Colors.blue.shade600,
-                      onTap: () => _go(const AddPatientScreen()),
-                    ),
-                    DashboardTile(
-                      icon: Icons.medical_services_outlined,
-                      label: 'Add Clinician',
-                      color: Colors.teal.shade600,
-                      onTap: () => _go(const AddClinicianScreen()),
-                    ),
-                    DashboardTile(
-                      icon: Icons.groups_outlined,
-                      label: 'Add Caregiver',
-                      color: Colors.indigo.shade600,
-                      onTap: () => _go(const AddCaregiverScreen()),
-                    ),
-                  ]),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: _grid([
+                      DashboardTile(
+                        icon: Icons.person_add,
+                        label: 'Add Patient',
+                        color: Colors.blue.shade600,
+                        onTap: () => _go(const AddPatientScreen()),
+                      ),
+                      DashboardTile(
+                        icon: Icons.medical_services_outlined,
+                        label: 'Add Clinician',
+                        color: Colors.teal.shade600,
+                        onTap: () => _go(const AddClinicianScreen()),
+                      ),
+                      DashboardTile(
+                        icon: Icons.groups_outlined,
+                        label: 'Add Caregiver',
+                        color: Colors.indigo.shade600,
+                        onTap: () => _go(const AddCaregiverScreen()),
+                      ),
+                    ]),
+                  ),
 
                   /// ======================
                   /// 🔗 RELATIONSHIPS
                   /// ======================
                   const _SectionHeader(title: 'Patient Relationships'),
-                  _grid([
-                    DashboardTile(
-                      icon: Icons.link,
-                      label: 'Patient → Clinician',
-                      color: Colors.deepPurple.shade600,
-                      onTap: () => _go(const LinkPatientClinicianScreen()),
-                    ),
-                    DashboardTile(
-                      icon: Icons.family_restroom,
-                      label: 'Patient → Caregiver',
-                      color: Colors.brown.shade600,
-                      onTap: () => _go(const LinkPatientCaregiverScreen()),
-                    ),
-                  ]),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: _grid([
+                      DashboardTile(
+                        icon: Icons.link,
+                        label: 'Patient → Clinician',
+                        color: Colors.deepPurple.shade600,
+                        onTap: () => _go(const LinkPatientClinicianScreen()),
+                      ),
+                      DashboardTile(
+                        icon: Icons.family_restroom,
+                        label: 'Patient → Caregiver',
+                        color: Colors.brown.shade600,
+                        onTap: () => _go(const LinkPatientCaregiverScreen()),
+                      ),
+                    ]),
+                  ),
 
                   /// ======================
                   /// 🚨 MONITORING
                   /// ======================
                   const _SectionHeader(title: 'Monitoring & Safety'),
-                  _grid([
-                    DashboardTile(
-                      icon: Icons.warning_amber_rounded,
-                      label: 'Safety Alerts',
-                      color: Colors.red.shade600,
-                      onTap: () => _go(const AlertsScreen()),
-                    ),
-                    DashboardTile(
-                      icon: Icons.assignment_outlined,
-                      label: 'PvPI Cases',
-                      color: Colors.orange.shade700,
-                      onTap: () => _go(const PvpiCasesScreen()),
-                    ),
-                  ]),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: _grid([
+                      DashboardTile(
+                        icon: Icons.warning_amber_rounded,
+                        label: 'Safety Alerts',
+                        color: Colors.red.shade600,
+                        onTap: () => _go(const AlertsScreen()),
+                      ),
+                      DashboardTile(
+                        icon: Icons.assignment_outlined,
+                        label: 'PvPI Cases',
+                        color: Colors.orange.shade700,
+                        onTap: () => _go(const PvpiCasesScreen()),
+                      ),
+                    ]),
+                  ),
 
                   const SizedBox(height: 24),
                 ],

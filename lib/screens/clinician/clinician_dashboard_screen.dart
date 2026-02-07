@@ -14,26 +14,28 @@ class ClinicianDashboardScreen extends StatelessWidget {
     return ClinicianScaffold(
       title: user?['username'] ?? 'Clinician',
       subtitle: 'Clinician Dashboard',
-
-      /* ================= BODY (UNCHANGED) ================= */
       body: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            /// Greeting
-            const Text(
-              'Welcome back 👋',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+            Row(
+              children: [
+                const Icon(Icons.medical_services, color: Color(0xFF1E88E5), size: 32),
+                const SizedBox(width: 10),
+                Text(
+                  'Welcome back 👋',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.blueGrey.shade900),
+                ),
+              ],
             ),
             const SizedBox(height: 6),
             const Text(
               'Manage your patients and review alerts',
-              style: TextStyle(color: Colors.grey),
+              style: TextStyle(color: Colors.grey, fontSize: 15),
             ),
-            const SizedBox(height: 24),
-
-            /// PRIMARY ACTION — MY PATIENTS
+            const SizedBox(height: 28),
             _PrimaryCard(
               title: 'My Patients',
               subtitle: 'View patients under your care',
@@ -46,10 +48,7 @@ class ClinicianDashboardScreen extends StatelessWidget {
                 ),
               ),
             ),
-
-            const SizedBox(height: 16),
-
-            /// SECONDARY ACTION — ALERTS
+            const SizedBox(height: 18),
             _SecondaryCard(
               title: 'Safety Alerts',
               subtitle: 'Review active alerts',
@@ -69,9 +68,6 @@ class ClinicianDashboardScreen extends StatelessWidget {
   }
 }
 
-/* =====================================================
-   PRIMARY CARD (UNCHANGED)
-===================================================== */
 class _PrimaryCard extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -153,9 +149,6 @@ class _PrimaryCard extends StatelessWidget {
   }
 }
 
-/* =====================================================
-   SECONDARY CARD (UNCHANGED)
-===================================================== */
 class _SecondaryCard extends StatelessWidget {
   final String title;
   final String subtitle;

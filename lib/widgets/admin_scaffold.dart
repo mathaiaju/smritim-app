@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../api_client.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../screens/login_screen.dart';
 import '../screens/viewpatientsscreen.dart';
@@ -47,8 +48,6 @@ class AdminScaffold extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
-
-      /* ================= APP BAR ================= */
       appBar: AppBar(
         elevation: 1,
         backgroundColor: Colors.white,
@@ -72,7 +71,6 @@ class AdminScaffold extends StatelessWidget {
               if (v == 'logout') _logout(context);
             },
             itemBuilder: (_) => [
-              /// 👤 USER INFO (DISABLED)
               PopupMenuItem(
                 enabled: false,
                 child: Column(
@@ -89,10 +87,7 @@ class AdminScaffold extends StatelessWidget {
                   ],
                 ),
               ),
-
               const PopupMenuDivider(),
-
-              /// ⚙️ SETTINGS
               const PopupMenuItem(
                 value: 'settings',
                 child: Row(
@@ -103,8 +98,6 @@ class AdminScaffold extends StatelessWidget {
                   ],
                 ),
               ),
-
-              /// 🚪 LOGOUT
               const PopupMenuItem(
                 value: 'logout',
                 child: Row(
@@ -120,13 +113,10 @@ class AdminScaffold extends StatelessWidget {
           const SizedBox(width: 8),
         ],
       ),
-
-      /* ================= DRAWER ================= */
       drawer: Drawer(
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
-            /* ===== HEADER ===== */
             Container(
               padding: const EdgeInsets.fromLTRB(20, 28, 20, 20),
               decoration: const BoxDecoration(
@@ -200,8 +190,6 @@ class AdminScaffold extends StatelessWidget {
             _item(context, Icons.assignment_outlined, 'PvPI Cases',
                 () => _go(context, const PvpiCasesScreen())),
             const SizedBox(height: 24),
-
-            /// 🌗 DARK MODE TOGGLE
             ValueListenableBuilder<ThemeMode>(
               valueListenable: themeNotifier,
               builder: (_, mode, __) {
@@ -214,11 +202,7 @@ class AdminScaffold extends StatelessWidget {
                 );
               },
             ),
-            
-            /// 🔐 BIOMETRIC TOGGLE
             _BiometricToggle(),
-
-            /* ===== FOOTER ===== */
             Center(
               child: Text(
                 'SMRITI-M © 2026',
@@ -229,8 +213,6 @@ class AdminScaffold extends StatelessWidget {
           ],
         ),
       ),
-
-      /* ================= BODY + FOOTER ================= */
       body: Column(
         children: [
           Expanded(child: body),
@@ -246,9 +228,6 @@ class AdminScaffold extends StatelessWidget {
           ),
         ],
       ),
-
-      /* ================= BODY ================= */
-      //body: body,
     );
   }
 
@@ -278,9 +257,6 @@ class AdminScaffold extends StatelessWidget {
   Widget _divider() => const Divider(height: 1);
 }
 
-/* =====================================================
-   BIOMETRIC TOGGLE WIDGET
-===================================================== */
 class _BiometricToggle extends StatefulWidget {
   const _BiometricToggle();
 
@@ -302,6 +278,22 @@ class _BiometricToggleState extends State<_BiometricToggle> {
     if (mounted) setState(() {});
   }
 
+  Future<void> _saveOrRemoveBiometricCredentials(bool enabled) async {
+    final userId = ApiClient.currentUser?['id']?.toString() ?? ApiClient.currentUser?['username']?.toString() ?? '';
+    final username = ApiClient.currentUser?['username']?.toString() ?? '';
+    final password = await ApiClient.getCurrentPassword();
+    final secureStorage = const FlutterSecureStorage();
+    if (enabled) {
+      if (username.isNotEmpty && password != null && password.isNotEmpty) {
+        await secureStorage.write(key: 'bio_user_$userId', value: username);
+        await secureStorage.write(key: 'bio_pass_$userId', value: password);
+      }
+    } else {
+      await secureStorage.delete(key: 'bio_user_$userId');
+      await secureStorage.delete(key: 'bio_pass_$userId');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return SwitchListTile(
@@ -316,7 +308,6 @@ class _BiometricToggleState extends State<_BiometricToggle> {
       onChanged: supported
           ? (v) async {
               if (v) {
-                // Authenticate before enabling
                 final authenticated = await BiometricAuth.authenticate();
                 if (!authenticated) {
                   if (mounted) {
@@ -328,6 +319,7 @@ class _BiometricToggleState extends State<_BiometricToggle> {
                 }
               }
               await ApiClient.enableBiometric(v);
+              await _saveOrRemoveBiometricCredentials(v);
               if (mounted) setState(() {});
             }
           : null,

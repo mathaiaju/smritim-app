@@ -203,8 +203,8 @@ class SleepFlow {
         'Consider discussing sleep concerns with your clinician.',
       );*/
       return SleepResult(
-        'sleep_result_very_poor',
-        'sleep_tip_very_poor',
+        screen.i18n.t('sleep_result_very_poor'),
+        screen.i18n.t('sleep_tip_very_poor'),
       );
     }
   }

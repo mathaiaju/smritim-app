@@ -71,41 +71,73 @@ class _AddCaregiverScreenState extends State<AddCaregiverScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            const AppHeader(subtitle: "Register caregiver access"),
+            const AppHeader(
+              subtitle: 'Register New Caregiver',
+            ),
+            const SizedBox(height: 16),
             Form(
               key: _formKey,
               child: Column(
                 children: [
-                  _field(_name, "Full name"),
-                  _field(_phone, "Phone"),
-                  _field(_relation, "Relation"),
-                  _field(_username, "Username"),
-                  _field(_password, "Password", obscure: true),
+                  TextFormField(
+                    controller: _name,
+                    decoration: const InputDecoration(
+                      labelText: 'Full Name',
+                      prefixIcon: Icon(Icons.person),
+                    ),
+                    validator: (v) => v == null || v.isEmpty ? 'Name is required' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _phone,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(
+                      labelText: 'Phone Number',
+                      prefixIcon: Icon(Icons.phone),
+                    ),
+                    validator: (v) => v == null || v.length < 10 ? 'Valid phone required' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _relation,
+                    decoration: const InputDecoration(
+                      labelText: 'Relation',
+                      prefixIcon: Icon(Icons.family_restroom),
+                    ),
+                    validator: (v) => v == null || v.isEmpty ? 'Relation required' : null,
+                  ),
                   const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: submitting ? null : submit,
-                    child:
-                        Text(submitting ? "Creating..." : "Create Caregiver"),
-                  )
+                  SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: submitting ? null : submit,
+                          child: submitting
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text('Create Caregiver'),
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _field(TextEditingController c, String label, {bool obscure = false}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: TextFormField(
-        controller: c,
-        obscureText: obscure,
-        validator: (v) => v == null || v.isEmpty ? "Required" : null,
-        decoration: InputDecoration(
-          labelText: label,
-          border: const OutlineInputBorder(),
         ),
       ),
     );

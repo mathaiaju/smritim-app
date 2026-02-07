@@ -1,0 +1,6 @@
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/logo/smriti-m.png"
+  adaptive_icon_background: "#F1F5FF"
+  adaptive_icon_foreground: "assets/logo/smriti-m.png"

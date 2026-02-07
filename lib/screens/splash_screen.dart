@@ -1,10 +1,6 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../api_client.dart';
-import '../utils/biometric_auth.dart';
 import 'login_screen.dart';
 import 'dashboard_screen.dart';
 import '../screens/clinician/clinician_dashboard_screen.dart';
@@ -21,7 +17,6 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _fadeController;
-  final _secureStorage = const FlutterSecureStorage();
 
   @override
   void initState() {
@@ -37,90 +32,7 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _navigate() async {
-    Widget target = const LoginScreen();
-
-    print('🔐 Biometric check:');
-    print('  - isLoggedIn: ${ApiClient.isLoggedIn}');
-    print('  - biometricEnabled: ${ApiClient.biometricEnabled}');
-    print('  - currentUser: ${ApiClient.currentUser}');
-
-    if (ApiClient.isLoggedIn) {
-      print('  - Taking isLoggedIn branch');
-      final isSupported = await BiometricAuth.isSupported();
-      final canAuth = await BiometricAuth.canAuthenticate();
-      
-      print('  - isSupported: $isSupported');
-      print('  - canAuthenticate: $canAuth');
-
-      if (ApiClient.biometricEnabled && isSupported && canAuth) {
-        print('  - Showing biometric prompt...');
-        final ok = await BiometricAuth.authenticate();
-        print('  - Biometric result: $ok');
-        target = ok ? _routeByRole() : const LoginScreen();
-      } else {
-        print('  - Skipping biometric (not enabled or not available)');
-        target = _routeByRole();
-      }
-    } else if (ApiClient.biometricEnabled) {
-      // No session but biometric enabled - try auto-login
-      final isSupported = await BiometricAuth.isSupported();
-      final canAuth = await BiometricAuth.canAuthenticate();
-      
-      if (isSupported && canAuth) {
-        print('  - Attempting biometric auto-login...');
-        final ok = await BiometricAuth.authenticate();
-        
-        if (ok) {
-          // Get last user ID from SharedPreferences
-          final prefs = await SharedPreferences.getInstance();
-          final lastUserId = prefs.getString('last_user_id');
-          print('  - Last user ID: $lastUserId');
-          
-          if (lastUserId != null) {
-            final storedUser = await _secureStorage.read(key: 'bio_user_$lastUserId');
-            final storedPass = await _secureStorage.read(key: 'bio_pass_$lastUserId');
-            print('  - Stored user: $storedUser');
-            print('  - Stored pass: ${storedPass != null ? "***" : "null"}');
-            
-            if (storedUser != null && storedPass != null) {
-              try {
-                print('  - Attempting login...');
-                final res = await ApiClient.postJson(
-                  '/auth/login',
-                  {'username': storedUser, 'password': storedPass},
-                );
-                
-                print('  - Login response: ${res.statusCode}');
-                if (res.statusCode == 200) {
-                  final data = jsonDecode(res.body);
-                  await ApiClient.setSession(
-                    token: data['token'],
-                    user: {
-                      'username': storedUser,
-                      'role': data['role'],
-                      'hospital_id': data['hospital_id'],
-                      'id': data['id'],
-                    },
-                  );
-                  print('  - Auto-login successful!');
-                  target = _routeByRole();
-                } else {
-                  print('  - Login failed: ${res.body}');
-                }
-              } catch (e) {
-                print('  - Auto-login failed: $e');
-              }
-            } else {
-              print('  - No stored credentials found');
-            }
-          } else {
-            print('  - No last_user_id found');
-          }
-        }
-      }
-    } else {
-      print('  - Not logged in, showing login screen');
-    }
+    Widget target = ApiClient.isLoggedIn ? _routeByRole() : const LoginScreen();
 
     if (!mounted) return;
 
@@ -146,51 +58,84 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5FF), // soft clinical blue
-      body: FadeTransition(
-        opacity: Tween(begin: 1.0, end: 0.0).animate(_fadeController),
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                /// LOGO
-                SvgPicture.asset(
-                  'assets/logo/smriti-m.svg',
-                  width: 120,
-                ),
-
-                const SizedBox(height: 24),
-
-                /// APP NAME
-                const Text(
-                  'SMRITI-M',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 36,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 3,
-                    color: Color(0xFF1E3A8A),
+      backgroundColor: const Color(0xFFF1F5FF),
+      body: Stack(
+        children: [
+          // Animated gradient background
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: 1),
+            duration: const Duration(seconds: 2),
+            builder: (context, value, child) {
+              return Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Color.lerp(const Color(0xFFF1F5FF), const Color(0xFFDBEAFE), value)!,
+                      Color.lerp(const Color(0xFFE0E7FF), const Color(0xFF1E3A8A), value * 0.7)!,
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
                 ),
-
-                const SizedBox(height: 18),
-
-                /// ACRONYM EXPANSION
-                const _AcronymBlock(),
-
-                const SizedBox(height: 36),
-
-                /// LOADING
-                const CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Color(0xFF1E3A8A),
+              );
+            },
+          ),
+          FadeTransition(
+            opacity: Tween(begin: 1.0, end: 0.0).animate(_fadeController),
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Animated logo
+                    TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0.8, end: 1.0),
+                      duration: const Duration(milliseconds: 900),
+                      curve: Curves.elasticOut,
+                      builder: (context, scale, child) => Transform.scale(
+                        scale: scale,
+                        child: child,
+                      ),
+                      child: SvgPicture.asset(
+                        'assets/logo/smriti-m.svg',
+                        width: 120,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    // Animated app name
+                    TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0, end: 1),
+                      duration: const Duration(milliseconds: 900),
+                      builder: (context, value, child) => Opacity(
+                        opacity: value,
+                        child: child,
+                      ),
+                      child: const Text(
+                        'SMRITI-M',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 36,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 3,
+                          color: Color(0xFF1E3A8A),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    // Staggered acronym block
+                    _AnimatedAcronymBlock(),
+                    const SizedBox(height: 36),
+                    const CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Color(0xFF1E3A8A),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -199,6 +144,39 @@ class _SplashScreenState extends State<SplashScreen>
   void dispose() {
     _fadeController.dispose();
     super.dispose();
+  }
+}
+
+/// Animated version of the acronym block
+class _AnimatedAcronymBlock extends StatelessWidget {
+  const _AnimatedAcronymBlock();
+  @override
+  Widget build(BuildContext context) {
+    final lines = const [
+      _AcronymLine(letter: 'S', text: 'Scalable'),
+      _AcronymLine(letter: 'M', text: 'Modular'),
+      _AcronymLine(letter: 'R', text: 'Responsive'),
+      _AcronymLine(letter: 'I', text: 'Integrated'),
+      _AcronymLine(letter: 'T', text: 'Technology'),
+      _AcronymLine(letter: 'I', text: 'for Improving'),
+      _AcronymLine(letter: 'M', text: 'Medication Safety & Adherence', highlight: true),
+    ];
+    return Column(
+      children: List.generate(lines.length, (i) {
+        return TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0, end: 1),
+          duration: Duration(milliseconds: 400 + i * 120),
+          builder: (context, value, child) => Opacity(
+            opacity: value,
+            child: Padding(
+              padding: EdgeInsets.only(left: value * 8),
+              child: child,
+            ),
+          ),
+          child: lines[i],
+        );
+      }),
+    );
   }
 }
 

@@ -9,15 +9,19 @@ import '../main.dart';
 import '../utils/biometric_auth.dart';
 
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class PatientScaffold extends StatelessWidget {
   final String title;
   final Widget body;
+  final Widget? floatingActionButton;
 
   const PatientScaffold({
     super.key,
     required this.title,
     required this.body,
+    this.floatingActionButton,
   });
 
   void _go(BuildContext context, Widget screen) {
@@ -41,8 +45,6 @@ class PatientScaffold extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7FB),
-
-      /* ================= APP BAR ================= */
       appBar: AppBar(
         elevation: 1,
         backgroundColor: Colors.white,
@@ -96,13 +98,10 @@ class PatientScaffold extends StatelessWidget {
           const SizedBox(width: 8),
         ],
       ),
-
-      /* ================= DRAWER ================= */
       drawer: Drawer(
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
-            /* ===== HEADER ===== */
             Container(
               padding: const EdgeInsets.fromLTRB(20, 28, 20, 20),
               decoration: const BoxDecoration(color: Color(0xFF1E88E5)),
@@ -163,8 +162,6 @@ class PatientScaffold extends StatelessWidget {
               () => _go(context, const AlertsScreen(apiPath: '/alerts')),
             ),
             const SizedBox(height: 20),
-
-            /* 🌗 DARK MODE */
             ValueListenableBuilder<ThemeMode>(
               valueListenable: themeNotifier,
               builder: (_, mode, __) {
@@ -177,8 +174,6 @@ class PatientScaffold extends StatelessWidget {
                 );
               },
             ),
-            
-            /* 🔐 BIOMETRIC */
             _BiometricToggle(),
             const SizedBox(height: 12),
             Center(
@@ -191,8 +186,6 @@ class PatientScaffold extends StatelessWidget {
           ],
         ),
       ),
-
-      /* ================= BODY + FOOTER ================= */
       body: Column(
         children: [
           Expanded(child: body),
@@ -208,10 +201,9 @@ class PatientScaffold extends StatelessWidget {
           ),
         ],
       ),
+      floatingActionButton: floatingActionButton,
     );
   }
-
-  /* ===== helpers ===== */
 
   Widget _item(
       BuildContext context, IconData icon, String label, VoidCallback onTap) {
@@ -239,9 +231,6 @@ class PatientScaffold extends StatelessWidget {
   Widget _divider() => const Divider(height: 1);
 }
 
-/* =====================================================
-   BIOMETRIC TOGGLE WIDGET
-===================================================== */
 class _BiometricToggle extends StatefulWidget {
   const _BiometricToggle();
 
@@ -263,6 +252,22 @@ class _BiometricToggleState extends State<_BiometricToggle> {
     if (mounted) setState(() {});
   }
 
+  Future<void> _saveOrRemoveBiometricCredentials(bool enabled) async {
+    final userId = ApiClient.currentUser?['id']?.toString() ?? ApiClient.currentUser?['username']?.toString() ?? '';
+    final username = ApiClient.currentUser?['username']?.toString() ?? '';
+    final password = await ApiClient.getCurrentPassword();
+    final secureStorage = const FlutterSecureStorage();
+    if (enabled) {
+      if (username.isNotEmpty && password != null && password.isNotEmpty) {
+        await secureStorage.write(key: 'bio_user_$userId', value: username);
+        await secureStorage.write(key: 'bio_pass_$userId', value: password);
+      }
+    } else {
+      await secureStorage.delete(key: 'bio_user_$userId');
+      await secureStorage.delete(key: 'bio_pass_$userId');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return SwitchListTile(
@@ -277,7 +282,6 @@ class _BiometricToggleState extends State<_BiometricToggle> {
       onChanged: supported
           ? (v) async {
               if (v) {
-                // Authenticate before enabling
                 final authenticated = await BiometricAuth.authenticate();
                 if (!authenticated) {
                   if (mounted) {
@@ -289,6 +293,7 @@ class _BiometricToggleState extends State<_BiometricToggle> {
                 }
               }
               await ApiClient.enableBiometric(v);
+              await _saveOrRemoveBiometricCredentials(v);
               if (mounted) setState(() {});
             }
           : null,

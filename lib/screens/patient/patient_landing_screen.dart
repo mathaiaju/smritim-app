@@ -67,77 +67,67 @@ class _PatientLandingScreenState extends State<PatientLandingScreen> {
   Widget build(BuildContext context) {
     return PatientScaffold(
       title: 'Patient Home',
-
-      /// 🔑 BODY CONTAINS FAB USING STACK
-      body: Stack(
-        children: [
-          RefreshIndicator(
-            onRefresh: _loadData,
-            child: loading
-                ? const Center(child: CircularProgressIndicator())
-                : ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
-                    children: [
-                      /* ---------- NOTIFICATIONS ---------- */
-                      const Text(
-                        'Notifications',
-                        style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 8),
-                      if (notifications.isEmpty)
-                        _EmptyCard(text: 'No new notifications')
-                      else
-                        ...notifications.map(_NotificationCard),
-                      const SizedBox(height: 24),
-
-                      /* ---------- TODAY’S MEDICATIONS ---------- */
-                      const Text(
-                        'Today’s Medications',
-                        style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 12),
-                      if (meds.isEmpty)
-                        _EmptyCard(
-                            text: '🎉 No medications scheduled for today')
-                      else
-                        ...meds.map(_MedicationCard),
-                      const SizedBox(height: 24),
-
-                      /* ---------- FOOTER ---------- */
-                      /*Center(
-                          child: Text(
-                            'SMRITI-M © 2026',
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),*/
-                    ],
+      body: RefreshIndicator(
+        onRefresh: _loadData,
+        child: loading
+            ? const Center(child: CircularProgressIndicator())
+            : ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+                children: [
+                  /* ---------- NOTIFICATIONS ---------- */
+                  const Text(
+                    'Notifications',
+                    style: TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w600),
                   ),
-          ),
+                  const SizedBox(height: 8),
+                  if (notifications.isEmpty)
+                    _EmptyCard(text: 'No new notifications')
+                  else
+                    ...notifications.map(_NotificationCard),
+                  const SizedBox(height: 24),
 
-          /* ================= CHATBOT FAB ================= */
-          Positioned(
-            bottom: 16,
-            right: 16,
-            child: FloatingActionButton.extended(
-              backgroundColor: Colors.blue,
-              icon: const Icon(Icons.chat_bubble_outline),
-              label: const Text('Chat'),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const PatientChatbotScreen(),
+                  /* ---------- TODAY’S MEDICATIONS ---------- */
+                  const Text(
+                    'Today’s Medications',
+                    style: TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w600),
                   ),
-                ).then((_) => _loadData());
-              },
+                  const SizedBox(height: 12),
+                  if (meds.isEmpty)
+                    _EmptyCard(
+                        text: '🎉 No medications scheduled for today')
+                  else
+                    ...meds.map(_MedicationCard),
+                  const SizedBox(height: 24),
+
+                  /* ---------- FOOTER ---------- */
+                  /*Center(
+                      child: Text(
+                        'SMRITI-M © 2026',
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),*/
+                ],
+              ),
+      ),
+
+      /// Add chatbot FAB to always show
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: Colors.blue,
+        icon: const Icon(Icons.chat_bubble_outline),
+        label: const Text('Chat'),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const PatientChatbotScreen(),
             ),
-          ),
-        ],
+          ).then((_) => _loadData());
+        },
       ),
     );
   }

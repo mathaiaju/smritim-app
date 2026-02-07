@@ -163,13 +163,26 @@ class _LinkPatientClinicianScreenState
                         ),
                       ),
                       const Spacer(),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: submitting ? null : _submit,
-                          child: submitting
-                              ? const CircularProgressIndicator()
-                              : const Text('Link Patient'),
+                      SafeArea(
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue,
+                                foregroundColor: Colors.white,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
+                              ),
+                              onPressed: submitting ? null : _submit,
+                              child: submitting
+                                  ? const CircularProgressIndicator()
+                                  : const Text('Link Patient'),
+                            ),
+                          ),
                         ),
                       )
                     ],

@@ -17,6 +17,8 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
   final phone = TextEditingController();
   final username = TextEditingController();
   final password = TextEditingController();
+  final dob = TextEditingController();
+  final weight = TextEditingController();
 
   bool loading = false;
 
@@ -33,6 +35,8 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
           "phone": phone.text.trim(),
           "username": username.text.trim(),
           "password": password.text.trim(),
+          "date_of_birth": dob.text.trim(),
+          "weight_kg": weight.text.trim(),
         },
       );
 
@@ -120,21 +124,70 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
                 validator: (v) =>
                     v == null || v.length < 6 ? 'Min 6 chars required' : null,
               ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: dob,
+                readOnly: true,
+                decoration: const InputDecoration(
+                  labelText: 'Date of Birth',
+                  prefixIcon: Icon(Icons.cake),
+                  hintText: 'YYYY-MM-DD',
+                ),
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: DateTime(2000, 1, 1),
+                    firstDate: DateTime(1900),
+                    lastDate: DateTime.now(),
+                  );
+                  if (picked != null) {
+                    dob.text = picked.toIso8601String().split('T').first;
+                  }
+                },
+                validator: (v) => v == null || v.isEmpty ? 'DOB required' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: weight,
+                keyboardType: TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Weight (kg)',
+                  prefixIcon: Icon(Icons.monitor_weight),
+                ),
+                validator: (v) {
+                  if (v == null || v.isEmpty) return 'Weight required';
+                  final w = double.tryParse(v);
+                  if (w == null || w <= 0) return 'Enter valid weight';
+                  return null;
+                },
+              ),
               const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: loading ? null : submit,
-                  child: loading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Text('Create Patient'),
+              SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: loading ? null : submit,
+                      child: loading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text('Create Patient'),
+                    ),
+                  ),
                 ),
               ),
             ],

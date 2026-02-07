@@ -76,36 +76,67 @@ class _AddClinicianScreenState extends State<AddClinicianScreen> {
               key: _formKey,
               child: Column(
                 children: [
-                  _field(_name, "Full name"),
-                  _field(_email, "Email"),
-                  _field(_phone, "Phone"),
-                  _field(_username, "Username"),
-                  _field(_password, "Password", obscure: true),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _name,
+                    decoration: const InputDecoration(
+                      labelText: 'Full Name',
+                      prefixIcon: Icon(Icons.person),
+                    ),
+                    validator: (v) => v == null || v.isEmpty ? 'Name is required' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _email,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: 'Email',
+                      prefixIcon: Icon(Icons.email),
+                    ),
+                    validator: (v) => v == null || v.isEmpty ? 'Email required' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _phone,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(
+                      labelText: 'Phone Number',
+                      prefixIcon: Icon(Icons.phone),
+                    ),
+                    validator: (v) => v == null || v.length < 10 ? 'Valid phone required' : null,
+                  ),
                   const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: submitting ? null : submit,
-                    child:
-                        Text(submitting ? "Creating..." : "Create Clinician"),
-                  )
+                  SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: submitting ? null : submit,
+                          child: submitting
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text('Create Clinician'),
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _field(TextEditingController c, String label, {bool obscure = false}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: TextFormField(
-        controller: c,
-        obscureText: obscure,
-        validator: (v) => v == null || v.isEmpty ? "Required" : null,
-        decoration: InputDecoration(
-          labelText: label,
-          border: const OutlineInputBorder(),
         ),
       ),
     );
